@@ -731,17 +731,130 @@ with tab6:
                         
                         st.success("✅ Bank statement analyzed!")
                         
-                        # DEBUG - Show what we got
-                        with st.expander("🔍 See Raw Data"):
-                            st.json(result)
+                        # Extract transactions
+                        inference = result.get('inference', {})
+                        result_data = inference.get('result', {})
+                        fields = result_data.get('fields', {})
                         
-                        st.info("💡 Bank statement data extracted! Review the fields above to see what was found.")
-                        st.markdown("""
-                        **Next steps:**
-                        1. Check the raw data above
-                        2. I'll help you parse transactions from it
-                        3. We'll auto-add them to your ledger
-                        """)
+                        # Get line items (transactions)
+                        line_items_obj = fields.get('line_items', {})
+                        line_items_array = line_items_obj.get('items', [])
+                        
+                        # Parse transactions
+                        parsed_transactions = []
+                        
+                        for item in line_items_array:
+                            if isinstance(item, dict):
+                                item_fields = item.get('fields', {})
+                                
+                                desc = item_fields.get('description', {}).get('value', 'Unknown')
+                                amount = item_fields.get('total_price', {}).get('value', 0.0)
+                                
+                                # Skip if no description or amount
+                                if not desc or desc in ['PURCHASES', 'CASH ADVANCES', 'PAYMENTS'] or amount is None:
+                                    continue
+                                
+                                # Auto-categorize based on vendor name
+                                category = "Groceries"  # Default
+                                desc_lower = desc.lower()
+                                
+                                # Groceries & Food
+                                if any(word in desc_lower for word in ['costco', 'walmart', 'vons', 'sprouts', 'trader', 'whole foods', 'aldi']):
+                                    category = "Groceries"
+                                # Dining Out
+                                elif any(word in desc_lower for word in ['restaurant', 'mcdonald', 'chick-fil-a', 'chipotle', 'shake shack', 'starbucks', 'coffee', 'donut', 'pizza', 'taco', 'burger', 'sonic', 'panda', 'wingstop', 'pollo']):
+                                    category = "Dining Out"
+                                # Gas/Fuel
+                                elif any(word in desc_lower for word in ['gas', 'fuel', 'shell', 'chevron', 'exxon', 'mobil']):
+                                    category = "Gas/Fuel"
+                                # Home Improvement
+                                elif any(word in desc_lower for word in ['home depot', 'lowes', 'hardware']):
+                                    category = "Rent/Mortgage"
+                                # Entertainment
+                                elif any(word in desc_lower for word in ['netflix', 'cinema', 'movie', 'theater']):
+                                    category = "Entertainment"
+                                # Personal Care
+                                elif any(word in desc_lower for word in ['ulta', 'sephora', 'salon', 'spa', 'marshalls', 'anthropologie', 'lululemon']):
+                                    category = "Personal Care"
+                                # Healthcare
+                                elif any(word in desc_lower for word in ['kaiser', 'pharmacy', 'cvs', 'walgreens', 'medical', 'doctor']):
+                                    category = "Healthcare"
+                                # Utilities
+                                elif any(word in desc_lower for word in ['burrtec', 'waste', 'water', 'electric', 'utility']):
+                                    category = "Utilities"
+                                # Tech/AI
+                                elif any(word in desc_lower for word in ['paypal', 'amazon', 'best buy', 'apple']):
+                                    category = "Tech/AI"
+                                # Car/Insurance
+                                elif any(word in desc_lower for word in ['dmv', 'registration', 'towing', 'auto']):
+                                    category = "Car Payment"
+                                
+                                # Determine if payment (negative) or charge (positive)
+                                trans_type = "Expense"
+                                if any(word in desc_lower for word in ['payment', 'thank you', 'automatic payment']):
+                                    trans_type = "Income"  # Payments are credits
+                                    amount = abs(amount)  # Make positive
+                                else:
+                                    amount = abs(amount)  # Charges are expenses
+                                
+                                parsed_transactions.append({
+                                    "description": desc,
+                                    "amount": amount,
+                                    "category": category,
+                                    "type": trans_type
+                                })
+                        
+                        # Display parsed transactions
+                        st.markdown(f"### 📋 Found {len(parsed_transactions)} Transactions")
+                        
+                        if parsed_transactions:
+                            # Show preview
+                            df_preview = pd.DataFrame(parsed_transactions)
+                            st.dataframe(df_preview.head(10), use_container_width=True, hide_index=True)
+                            
+                            if len(parsed_transactions) > 10:
+                                st.info(f"📊 Showing first 10 of {len(parsed_transactions)} transactions")
+                            
+                            # Add all button
+                            col_a, col_b = st.columns(2)
+                            with col_a:
+                                if st.button(f"✅ Add All {len(parsed_transactions)} Transactions", type="primary", use_container_width=True):
+                                    # Get date from statement
+                                    statement_date = fields.get('date', {}).get('value', datetime.now().strftime("%Y-%m-%d"))
+                                    
+                                    try:
+                                        date_obj = datetime.strptime(str(statement_date), "%Y-%m-%d")
+                                    except:
+                                        date_obj = datetime.now()
+                                    
+                                    # Add all transactions
+                                    for trans in parsed_transactions:
+                                        user_data['bank_transactions'].append({
+                                            "Date": date_obj.strftime("%m/%d/%Y"),
+                                            "Vendor": trans['description'],
+                                            "Amount": trans['amount'],
+                                            "Category": trans['category'],
+                                            "Type": trans['type'],
+                                            "Notes": "Auto-imported from bank statement"
+                                        })
+                                    
+                                    st.success(f"🎉 Added {len(parsed_transactions)} transactions to your ledger!")
+                                    st.balloons()
+                                    st.rerun()
+                            
+                            with col_b:
+                                # Show categorization summary
+                                with st.expander("📊 Category Breakdown"):
+                                    category_counts = df_preview.groupby('category').size().sort_values(ascending=False)
+                                    for cat, count in category_counts.items():
+                                        st.markdown(f"• **{cat}**: {count} transactions")
+                        
+                        else:
+                            st.warning("No transactions found in the statement.")
+                        
+                        # Debug option
+                        with st.expander("🔍 See Raw Data (Advanced)"):
+                            st.json(result)
                 
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
