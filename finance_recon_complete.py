@@ -11,14 +11,6 @@ from io import BytesIO
 from collections import defaultdict
 import time
 
-# Supabase client
-try:
-    from supabase import create_client, Client
-    SUPABASE_AVAILABLE = True
-except ImportError:
-    SUPABASE_AVAILABLE = False
-    st.error("⚠️ Supabase library not installed. Add 'supabase' to requirements.txt")
-
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="D.E.V.I.N - Finance Tracker", layout="wide", page_icon="👍")
 
@@ -58,116 +50,18 @@ st.markdown("""
         border-radius: 20px;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     }
-    .devin-logo {
-        text-align: center;
-        margin-bottom: 30px;
-    }
-    .devin-title {
-        font-size: 3.5rem;
-        font-weight: 900;
-        background: linear-gradient(90deg, #00D9FF 0%, #7B2CBF 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        letter-spacing: 0.5rem;
-        margin: 10px 0 5px 0;
-    }
-    .devin-subtitle {
-        font-size: 0.95rem;
-        color: #888;
-        font-weight: 500;
-        letter-spacing: 0.1rem;
-        margin: 0;
-    }
-    .thumbs-up-container {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 20px;
-    }
 </style>
 """, unsafe_allow_html=True)
 
 def render_devin_logo():
-    """Render D.E.V.I.N logo with thumbs up SVG"""
-    svg_thumbs_up = """
-    <svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-        <!-- Gradient definition -->
-        <defs>
-            <linearGradient id="thumbGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style="stop-color:#00D9FF;stop-opacity:1" />
-                <stop offset="100%" style="stop-color:#7B2CBF;stop-opacity:1" />
-            </linearGradient>
-            <filter id="glow">
-                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                <feMerge>
-                    <feMergeNode in="coloredBlur"/>
-                    <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-            </filter>
-        </defs>
-        
-        <!-- Thumbs up hand -->
-        <g transform="translate(60, 60)">
-            <!-- Thumb -->
-            <path d="M -15,-25 Q -20,-35 -10,-40 Q 0,-42 5,-35 L 10,-15 L 5,-10 L -15,-10 Z" 
-                  fill="url(#thumbGradient)" filter="url(#glow)" stroke="#00D9FF" stroke-width="2"/>
-            
-            <!-- Palm/fingers base -->
-            <rect x="-15" y="-10" width="25" height="35" rx="5" 
-                  fill="url(#thumbGradient)" filter="url(#glow)" stroke="#00D9FF" stroke-width="2"/>
-            
-            <!-- Fingers -->
-            <rect x="-12" y="25" width="5" height="15" rx="2.5" 
-                  fill="url(#thumbGradient)" stroke="#00D9FF" stroke-width="1.5"/>
-            <rect x="-5" y="25" width="5" height="18" rx="2.5" 
-                  fill="url(#thumbGradient)" stroke="#00D9FF" stroke-width="1.5"/>
-            <rect x="2" y="25" width="5" height="16" rx="2.5" 
-                  fill="url(#thumbGradient)" stroke="#00D9FF" stroke-width="1.5"/>
-            
-            <!-- Shine effect -->
-            <ellipse cx="-5" cy="0" rx="8" ry="12" fill="rgba(255,255,255,0.2)"/>
-        </g>
-        
-        <!-- Sparkle effects -->
-        <circle cx="25" cy="30" r="2" fill="#00D9FF" opacity="0.8">
-            <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/>
-        </circle>
-        <circle cx="90" cy="35" r="1.5" fill="#7B2CBF" opacity="0.8">
-            <animate attributeName="opacity" values="0.3;1;0.3" dur="2.5s" repeatCount="indefinite"/>
-        </circle>
-        <circle cx="70" cy="85" r="2" fill="#00D9FF" opacity="0.8">
-            <animate attributeName="opacity" values="0.3;1;0.3" dur="3s" repeatCount="indefinite"/>
-        </circle>
-    </svg>
-    """
-    
-    logo_html = f"""
-    <div class="devin-logo">
-        <div class="thumbs-up-container">
-            {svg_thumbs_up}
-        </div>
-        <h1 class="devin-title">D.E.V.I.N</h1>
-        <p class="devin-subtitle">DAILY EXPENSE VERIFICATION INCOME NETWORK</p>
+    """Render D.E.V.I.N logo"""
+    st.markdown("""
+    <div style="text-align: center; margin-bottom: 30px;">
+        <div style="font-size: 4rem;">👍</div>
+        <h1 style="font-size: 3.5rem; font-weight: 900; background: linear-gradient(90deg, #00D9FF 0%, #7B2CBF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 0.5rem; margin: 10px 0 5px 0;">D.E.V.I.N</h1>
+        <p style="font-size: 0.95rem; color: #888; font-weight: 500; letter-spacing: 0.1rem; margin: 0;">DAILY EXPENSE VERIFICATION INCOME NETWORK</p>
     </div>
-    """
-    
-    st.markdown(logo_html, unsafe_allow_html=True)
-
-# --- SUPABASE SETUP ---
-@st.cache_resource
-def init_supabase():
-    """Initialize Supabase client"""
-    if not SUPABASE_AVAILABLE:
-        return None
-    
-    try:
-        supabase_url = st.secrets["supabase"]["url"]
-        supabase_key = st.secrets["supabase"]["key"]
-        return create_client(supabase_url, supabase_key)
-    except Exception as e:
-        st.error(f"Failed to connect to Supabase: {e}")
-        return None
-
-supabase = init_supabase()
+    """, unsafe_allow_html=True)
 
 # --- MINDEE CONFIG ---
 try:
@@ -175,75 +69,7 @@ try:
 except:
     mindee_api_key = ""
 
-RECEIPT_MODEL_ID = "ea052ba3-d02e-482b-af10-3aeba53c7146"
 BANK_STATEMENT_MODEL_ID = "77d71fe3-2547-482e-94b3-a3a6c3d97028"
-
-# --- DATABASE FUNCTIONS ---
-def get_or_create_user(username):
-    """Get user ID or create new user"""
-    if not supabase:
-        return None
-    
-    # Check if user exists
-    result = supabase.table('users').select('id').eq('username', username).execute()
-    
-    if result.data:
-        return result.data[0]['id']
-    else:
-        # Create new user
-        result = supabase.table('users').insert({'username': username}).execute()
-        return result.data[0]['id']
-
-def load_user_transactions(user_id):
-    """Load all transactions for a user"""
-    if not supabase or not user_id:
-        return []
-    
-    result = supabase.table('transactions').select('*').eq('user_id', user_id).order('date', desc=True).execute()
-    return result.data if result.data else []
-
-def save_transaction(user_id, transaction):
-    """Save a single transaction"""
-    if not supabase or not user_id:
-        return False
-    
-    data = {
-        'user_id': user_id,
-        'date': transaction['Date'],
-        'vendor': transaction['Vendor'],
-        'amount': float(transaction['Amount']),
-        'category': transaction['Category'],
-        'type': transaction['Type'],
-        'notes': transaction.get('Notes', ''),
-        'card_name': transaction.get('Card', '')
-    }
-    
-    result = supabase.table('transactions').insert(data).execute()
-    return bool(result.data)
-
-def load_user_budget(user_id):
-    """Load budget settings for a user"""
-    if not supabase or not user_id:
-        return {}
-    
-    result = supabase.table('budgets').select('*').eq('user_id', user_id).execute()
-    
-    if result.data:
-        return {item['category']: float(item['amount']) for item in result.data}
-    return {}
-
-def save_user_budget(user_id, budget_dict):
-    """Save budget settings for a user"""
-    if not supabase or not user_id:
-        return False
-    
-    # Delete existing budget
-    supabase.table('budgets').delete().eq('user_id', user_id).execute()
-    
-    # Insert new budget
-    data = [{'user_id': user_id, 'category': cat, 'amount': float(amt)} for cat, amt in budget_dict.items()]
-    result = supabase.table('budgets').insert(data).execute()
-    return bool(result.data)
 
 # --- MINDEE API ---
 def analyze_with_mindee(image_bytes, filename, api_key, model_id):
@@ -326,14 +152,13 @@ if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 if 'current_user' not in st.session_state:
     st.session_state.current_user = None
-if 'user_id' not in st.session_state:
-    st.session_state.user_id = None
+if 'all_user_data' not in st.session_state:
+    st.session_state.all_user_data = {}
 
 def login_page():
     """Display login"""
     st.markdown("<div class='login-box'>", unsafe_allow_html=True)
     
-    # Render D.E.V.I.N logo
     render_devin_logo()
     
     st.markdown("### Welcome! Please login")
@@ -354,44 +179,29 @@ def login_page():
             elif password != MASTER_PASSWORD:
                 st.error("❌ Incorrect access code")
             else:
-                # Get or create user
-                user_id = get_or_create_user(username)
+                st.session_state.authenticated = True
+                st.session_state.current_user = username
                 
-                if user_id:
-                    st.session_state.authenticated = True
-                    st.session_state.current_user = username
-                    st.session_state.user_id = user_id
-                    st.success(f"✅ Welcome, {username}!")
-                    st.rerun()
-                else:
-                    st.error("Database connection failed")
+                # Create user data if doesn't exist
+                if username not in st.session_state.all_user_data:
+                    st.session_state.all_user_data[username] = {
+                        'transactions': [],
+                        'budget': {}
+                    }
+                
+                st.success(f"✅ Welcome, {username}!")
+                st.rerun()
     
     st.markdown("</div>", unsafe_allow_html=True)
+    st.info("⚠️ Demo Mode: Data clears when you close the browser")
 
 if not st.session_state.authenticated:
     login_page()
     st.stop()
 
 # --- MAIN APP ---
-user_id = st.session_state.user_id
 current_user = st.session_state.current_user
-
-# Load data from Supabase
-transactions = load_user_transactions(user_id)
-saved_budget = load_user_budget(user_id)
-
-# Convert transactions to list of dicts
-transaction_list = []
-for t in transactions:
-    transaction_list.append({
-        'Date': t['date'],
-        'Vendor': t['vendor'],
-        'Amount': float(t['amount']),
-        'Category': t['category'],
-        'Type': t['type'],
-        'Notes': t['notes'],
-        'Card': t.get('card_name', '')
-    })
+user_data = st.session_state.all_user_data[current_user]
 
 # Sidebar
 with st.sidebar:
@@ -400,7 +210,6 @@ with st.sidebar:
     if st.button("🚪 Logout", use_container_width=True):
         st.session_state.authenticated = False
         st.session_state.current_user = None
-        st.session_state.user_id = None
         st.rerun()
     
     st.divider()
@@ -417,6 +226,7 @@ with st.sidebar:
     st.markdown("### 📊 Budget")
     
     categories = {}
+    saved_budget = user_data.get('budget', {})
     
     with st.expander("🏠 Housing"):
         categories["Rent/Mortgage"] = st.slider("Rent/Mortgage", 0, 5000, saved_budget.get("Rent/Mortgage", 0), 50)
@@ -441,12 +251,10 @@ with st.sidebar:
         categories["Healthcare"] = st.slider("Healthcare", 0, 500, saved_budget.get("Healthcare", 0), 25)
         categories["Personal Care"] = st.slider("Personal Care", 0, 300, saved_budget.get("Personal Care", 0), 25)
     
-    # Save budget button
+    # Save budget
     if st.button("💾 Save Budget", use_container_width=True):
-        if save_user_budget(user_id, categories):
-            st.success("✅ Budget saved!")
-        else:
-            st.error("Failed to save budget")
+        user_data['budget'] = categories
+        st.success("✅ Budget saved!")
     
     total_budgeted = sum(categories.values())
     remaining = total_income - total_budgeted
@@ -469,11 +277,13 @@ with st.sidebar:
 
 # Main content
 st.markdown(f"# 👍 D.E.V.I.N - {current_user}'s Dashboard")
-st.markdown("*Daily Expense Verification Income Network* | Data persists forever! ✅")
+st.markdown("*Daily Expense Verification Income Network*")
+st.warning("⚠️ Demo Mode: Data is temporary and will be lost when you close the browser")
 
 # Metrics
-total_spent = sum([t['Amount'] for t in transaction_list if t['Type'] == 'Expense'])
-total_earned = sum([t['Amount'] for t in transaction_list if t['Type'] == 'Income'])
+transactions = user_data.get('transactions', [])
+total_spent = sum([t['Amount'] for t in transactions if t['Type'] == 'Expense'])
+total_earned = sum([t['Amount'] for t in transactions if t['Type'] == 'Income'])
 net_savings = total_earned - total_spent
 
 col1, col2, col3, col4 = st.columns(4)
@@ -484,7 +294,7 @@ with col2:
 with col3:
     st.metric("📊 Net Savings", f"${net_savings:,.0f}")
 with col4:
-    st.metric("📝 Transactions", len(transaction_list))
+    st.metric("📝 Transactions", len(transactions))
 
 st.divider()
 
@@ -494,8 +304,8 @@ tab1, tab2, tab3 = st.tabs(["🏦 Transactions", "📊 Analytics", "📤 Upload 
 with tab1:
     st.markdown("### 🏦 All Transactions")
     
-    if transaction_list:
-        df = pd.DataFrame(transaction_list)
+    if transactions:
+        df = pd.DataFrame(transactions)
         st.dataframe(df, use_container_width=True, hide_index=True, height=400)
         
         csv = df.to_csv(index=False)
@@ -506,8 +316,8 @@ with tab1:
 with tab2:
     st.markdown("### 📊 Spending Analytics")
     
-    if transaction_list:
-        df = pd.DataFrame(transaction_list)
+    if transactions:
+        df = pd.DataFrame(transactions)
         expenses = df[df['Type'] == 'Expense']
         
         if not expenses.empty:
@@ -575,8 +385,7 @@ with tab3:
                             df_preview = pd.DataFrame(parsed)
                             st.dataframe(df_preview.head(20), use_container_width=True, hide_index=True)
                             
-                            if st.button(f"💾 Save All {len(parsed)} Transactions to Database", type="primary"):
-                                saved_count = 0
+                            if st.button(f"💾 Add All {len(parsed)} Transactions", type="primary"):
                                 for trans in parsed:
                                     transaction = {
                                         "Date": datetime.now().strftime("%Y-%m-%d"),
@@ -587,10 +396,9 @@ with tab3:
                                         "Notes": f"Auto-imported from {card_name}",
                                         "Card": card_name
                                     }
-                                    if save_transaction(user_id, transaction):
-                                        saved_count += 1
+                                    user_data['transactions'].append(transaction)
                                 
-                                st.success(f"🎉 Saved {saved_count} transactions to database!")
+                                st.success(f"🎉 Added {len(parsed)} transactions!")
                                 st.balloons()
                                 time.sleep(2)
                                 st.rerun()
@@ -603,6 +411,6 @@ st.divider()
 st.markdown(f"""
 <div style='text-align: center; color: #666;'>
     <p>👍 <b>D.E.V.I.N</b> - Daily Expense Verification Income Network</p>
-    <p style='font-size: 0.9em;'>{current_user} | {len(transaction_list)} transactions | 🗄️ Powered by Supabase & Mindee AI</p>
+    <p style='font-size: 0.9em;'>{current_user} | {len(transactions)} transactions | 🤖 Powered by Mindee AI</p>
 </div>
 """, unsafe_allow_html=True)
