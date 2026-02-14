@@ -20,7 +20,7 @@ except ImportError:
     st.error("⚠️ Supabase library not installed. Add 'supabase' to requirements.txt")
 
 # --- PAGE CONFIG ---
-st.set_page_config(page_title="Finance Recon Pro", layout="wide", page_icon="💰")
+st.set_page_config(page_title="D.E.V.I.N - Finance Tracker", layout="wide", page_icon="👍")
 
 # Custom CSS
 st.markdown("""
@@ -51,15 +51,106 @@ st.markdown("""
         box-shadow: 0 5px 15px rgba(0, 217, 255, 0.4);
     }
     .login-box {
-        max-width: 400px;
-        margin: 100px auto;
+        max-width: 450px;
+        margin: 80px auto;
         padding: 40px;
         background: linear-gradient(145deg, #1e2530 0%, #252d3d 100%);
         border-radius: 20px;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     }
+    .devin-logo {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    .devin-title {
+        font-size: 3.5rem;
+        font-weight: 900;
+        background: linear-gradient(90deg, #00D9FF 0%, #7B2CBF 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: 0.5rem;
+        margin: 10px 0 5px 0;
+    }
+    .devin-subtitle {
+        font-size: 0.95rem;
+        color: #888;
+        font-weight: 500;
+        letter-spacing: 0.1rem;
+        margin: 0;
+    }
+    .thumbs-up-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+def render_devin_logo():
+    """Render D.E.V.I.N logo with thumbs up SVG"""
+    svg_thumbs_up = """
+    <svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <!-- Gradient definition -->
+        <defs>
+            <linearGradient id="thumbGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#00D9FF;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#7B2CBF;stop-opacity:1" />
+            </linearGradient>
+            <filter id="glow">
+                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                <feMerge>
+                    <feMergeNode in="coloredBlur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+            </filter>
+        </defs>
+        
+        <!-- Thumbs up hand -->
+        <g transform="translate(60, 60)">
+            <!-- Thumb -->
+            <path d="M -15,-25 Q -20,-35 -10,-40 Q 0,-42 5,-35 L 10,-15 L 5,-10 L -15,-10 Z" 
+                  fill="url(#thumbGradient)" filter="url(#glow)" stroke="#00D9FF" stroke-width="2"/>
+            
+            <!-- Palm/fingers base -->
+            <rect x="-15" y="-10" width="25" height="35" rx="5" 
+                  fill="url(#thumbGradient)" filter="url(#glow)" stroke="#00D9FF" stroke-width="2"/>
+            
+            <!-- Fingers -->
+            <rect x="-12" y="25" width="5" height="15" rx="2.5" 
+                  fill="url(#thumbGradient)" stroke="#00D9FF" stroke-width="1.5"/>
+            <rect x="-5" y="25" width="5" height="18" rx="2.5" 
+                  fill="url(#thumbGradient)" stroke="#00D9FF" stroke-width="1.5"/>
+            <rect x="2" y="25" width="5" height="16" rx="2.5" 
+                  fill="url(#thumbGradient)" stroke="#00D9FF" stroke-width="1.5"/>
+            
+            <!-- Shine effect -->
+            <ellipse cx="-5" cy="0" rx="8" ry="12" fill="rgba(255,255,255,0.2)"/>
+        </g>
+        
+        <!-- Sparkle effects -->
+        <circle cx="25" cy="30" r="2" fill="#00D9FF" opacity="0.8">
+            <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="90" cy="35" r="1.5" fill="#7B2CBF" opacity="0.8">
+            <animate attributeName="opacity" values="0.3;1;0.3" dur="2.5s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="70" cy="85" r="2" fill="#00D9FF" opacity="0.8">
+            <animate attributeName="opacity" values="0.3;1;0.3" dur="3s" repeatCount="indefinite"/>
+        </circle>
+    </svg>
+    """
+    
+    logo_html = f"""
+    <div class="devin-logo">
+        <div class="thumbs-up-container">
+            {svg_thumbs_up}
+        </div>
+        <h1 class="devin-title">D.E.V.I.N</h1>
+        <p class="devin-subtitle">DAILY EXPENSE VERIFICATION INCOME NETWORK</p>
+    </div>
+    """
+    
+    st.markdown(logo_html, unsafe_allow_html=True)
 
 # --- SUPABASE SETUP ---
 @st.cache_resource
@@ -241,7 +332,10 @@ if 'user_id' not in st.session_state:
 def login_page():
     """Display login"""
     st.markdown("<div class='login-box'>", unsafe_allow_html=True)
-    st.markdown("# 💰 Finance Recon Pro")
+    
+    # Render D.E.V.I.N logo
+    render_devin_logo()
+    
     st.markdown("### Welcome! Please login")
     
     with st.form("login_form"):
@@ -374,8 +468,8 @@ with st.sidebar:
         st.success(f"Left: ${remaining:,.0f}")
 
 # Main content
-st.markdown(f"# 💰 {current_user}'s Finance Dashboard")
-st.markdown("*Data persists forever with Supabase!* ✅")
+st.markdown(f"# 👍 D.E.V.I.N - {current_user}'s Dashboard")
+st.markdown("*Daily Expense Verification Income Network* | Data persists forever! ✅")
 
 # Metrics
 total_spent = sum([t['Amount'] for t in transaction_list if t['Type'] == 'Expense'])
@@ -508,6 +602,7 @@ with tab3:
 st.divider()
 st.markdown(f"""
 <div style='text-align: center; color: #666;'>
-    <p>💰 Finance Recon Pro v5.0 | {current_user} | {len(transaction_list)} transactions | 🗄️ Powered by Supabase</p>
+    <p>👍 <b>D.E.V.I.N</b> - Daily Expense Verification Income Network</p>
+    <p style='font-size: 0.9em;'>{current_user} | {len(transaction_list)} transactions | 🗄️ Powered by Supabase & Mindee AI</p>
 </div>
 """, unsafe_allow_html=True)
