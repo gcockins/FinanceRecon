@@ -116,12 +116,20 @@ def render_devin_logo(size="large"):
     """Render D.E.V.I.N logo - full on login, small on dashboard"""
     import base64
     
-    # Read the logo image
-    try:
-        with open("/mnt/user-data/uploads/Devin.png", "rb") as f:
-            logo_data = base64.b64encode(f.read()).decode()
-    except:
-        # Fallback if image not found
+    # Try multiple paths (GitHub repo, then uploads as fallback)
+    logo_paths = ["Devin.png", "devin_logo.png", "/mnt/user-data/uploads/Devin.png"]
+    logo_data = None
+    
+    for path in logo_paths:
+        try:
+            with open(path, "rb") as f:
+                logo_data = base64.b64encode(f.read()).decode()
+                break
+        except:
+            continue
+    
+    if not logo_data:
+        # Fallback if image not found - show emoji version
         st.markdown("""
         <div style="text-align: center; margin-bottom: 30px;">
             <div style="font-size: 4rem;">💼</div>
@@ -135,14 +143,14 @@ def render_devin_logo(size="large"):
         # Full logo for login page
         st.markdown(f"""
         <div style="text-align: center; margin-bottom: 30px;">
-            <img src="data:image/png;base64,{logo_data}" style="width: 100%; max-width: 400px; height: auto; margin: 0 auto; display: block;">
+            <img src="data:image/png;base64,{logo_data}" style="width: 100%; max-width: 400px; height: auto; margin: 0 auto; display: block; border-radius: 15px; box-shadow: 0 8px 20px rgba(255, 184, 77, 0.3);">
         </div>
         """, unsafe_allow_html=True)
     else:
         # Small logo for dashboard
         st.markdown(f"""
         <div style="text-align: center; margin-bottom: 20px;">
-            <img src="data:image/png;base64,{logo_data}" style="width: 150px; height: auto; margin: 0 auto; display: block; border-radius: 10px;">
+            <img src="data:image/png;base64,{logo_data}" style="width: 150px; height: auto; margin: 0 auto; display: block; border-radius: 10px; box-shadow: 0 4px 10px rgba(255, 184, 77, 0.2);">
         </div>
         """, unsafe_allow_html=True)
 
