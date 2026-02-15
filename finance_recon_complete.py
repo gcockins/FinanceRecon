@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 from io import BytesIO
 from collections import defaultdict
 import time
+import calendar
 
 # Try to import Supabase
 try:
@@ -19,41 +20,20 @@ except ImportError:
     SUPABASE_AVAILABLE = False
 
 # --- PAGE CONFIG ---
-st.set_page_config(page_title="D.E.V.I.N - Finance Tracker", layout="wide", page_icon="👍")
+st.set_page_config(page_title="D.E.V.I.N - Finance Advisor", layout="wide", page_icon="💼")
 
-# Custom CSS
+# Custom CSS matching logo
 st.markdown("""
 <style>
-    /* Main theme - matching logo's light blue background */
     .stApp { 
         background: linear-gradient(135deg, #C8DCE8 0%, #E8F4F8 100%);
         color: #1a2332; 
     }
+    h1 { color: #2C3E50; font-weight: 800; }
+    h2, h3 { color: #1a2332; font-weight: 700; }
+    [data-testid="stMetricValue"] { font-size: 2rem; font-weight: 700; color: #FFB84D; }
+    [data-testid="stMetricLabel"] { color: #2C3E50; font-weight: 600; }
     
-    /* Headers - Navy blue matching suit */
-    h1 {
-        color: #2C3E50;
-        font-weight: 800;
-    }
-    
-    h2, h3 { 
-        color: #1a2332;
-        font-weight: 700;
-    }
-    
-    /* Metrics - Gold matching tie */
-    [data-testid="stMetricValue"] { 
-        font-size: 2rem; 
-        font-weight: 700;
-        color: #FFB84D;
-    }
-    
-    [data-testid="stMetricLabel"] {
-        color: #2C3E50;
-        font-weight: 600;
-    }
-    
-    /* Buttons - Gold gradient matching tie */
     .stButton>button {
         background: linear-gradient(90deg, #FFB84D 0%, #F4A460 100%);
         color: #1a2332;
@@ -61,33 +41,59 @@ st.markdown("""
         border-radius: 10px;
         padding: 10px 20px;
         font-weight: 700;
-        transition: all 0.3s;
         box-shadow: 0 4px 6px rgba(44, 62, 80, 0.2);
     }
-    
     .stButton>button:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 20px rgba(255, 184, 77, 0.5);
-        background: linear-gradient(90deg, #F4A460 0%, #FFB84D 100%);
     }
     
-    /* Login box - Professional card on light background */
-    .login-box {
-        max-width: 500px;
-        margin: 50px auto;
-        padding: 40px;
+    .wizard-step {
         background: white;
-        border-radius: 20px;
-        box-shadow: 0 10px 40px rgba(44, 62, 80, 0.15);
-        border: 2px solid rgba(255, 184, 77, 0.3);
+        padding: 30px;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(44, 62, 80, 0.1);
+        margin: 20px 0;
+        border-left: 5px solid #FFB84D;
     }
     
-    /* Progress bars - Gold */
-    .stProgress > div > div > div > div {
+    .alert-warning {
+        background: #FFF3CD;
+        border-left: 4px solid #FFA500;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 10px 0;
+    }
+    
+    .alert-danger {
+        background: #FFE5E5;
+        border-left: 4px solid #FF4444;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 10px 0;
+    }
+    
+    .alert-success {
+        background: #E5F5E5;
+        border-left: 4px solid #44FF44;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 10px 0;
+    }
+    
+    .progress-bar {
+        background: #E0E0E0;
+        border-radius: 10px;
+        height: 20px;
+        overflow: hidden;
+    }
+    
+    .progress-fill {
         background: linear-gradient(90deg, #FFB84D 0%, #F4A460 100%);
+        height: 100%;
+        transition: width 0.3s;
     }
     
-    /* Sidebar - Navy blue matching suit */
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #2C3E50 0%, #34495e 100%);
         color: white;
@@ -99,96 +105,52 @@ st.markdown("""
     [data-testid="stSidebar"] label {
         color: white !important;
     }
-    
-    /* Input fields - Light with navy border */
-    .stTextInput input, .stNumberInput input {
-        background-color: white;
-        border: 2px solid #2C3E50;
-        color: #1a2332;
-    }
-    
-    /* Sliders */
-    .stSlider > div > div > div > div {
-        background-color: #FFB84D;
-    }
-    
-    /* Tabs - Professional look */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: transparent;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        background-color: white;
-        border-radius: 10px 10px 0 0;
-        color: #2C3E50;
-        font-weight: 600;
-        border: 2px solid #E8F4F8;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(90deg, #FFB84D 0%, #F4A460 100%);
-        color: #1a2332;
-        border-color: #FFB84D;
-    }
-    
-    /* Cards/Containers */
-    .element-container {
-        background-color: transparent;
-    }
-    
-    /* Dataframes */
-    .stDataFrame {
-        background-color: white;
-        border-radius: 10px;
-    }
-    
-    /* Warning/Info boxes */
-    .stAlert {
-        background-color: white;
-        border-left: 4px solid #FFB84D;
-        color: #1a2332;
-    }
-    
-    /* Expanders */
-    .streamlit-expanderHeader {
-        background-color: rgba(255, 184, 77, 0.1);
-        border-radius: 10px;
-        color: #2C3E50;
-        font-weight: 600;
-    }
 </style>
 """, unsafe_allow_html=True)
 
 # --- SUPABASE SETUP ---
 @st.cache_resource
 def init_supabase():
-    """Initialize Supabase client with fallback"""
     if not SUPABASE_AVAILABLE:
         return None
-    
     try:
         supabase_url = st.secrets["supabase"]["url"]
         supabase_key = st.secrets["supabase"]["key"]
-        client = create_client(supabase_url, supabase_key)
-        return client
+        return create_client(supabase_url, supabase_key)
     except:
         return None
 
 supabase = init_supabase()
 USE_DATABASE = supabase is not None
 
-# Show connection status in sidebar
-if USE_DATABASE:
-    st.sidebar.success("🗄️ Database Connected")
-else:
-    st.sidebar.warning("⚠️ Demo Mode (No Database)")
+# --- CONSTANTS ---
+MINDEE_API_KEY = st.secrets.get("MINDEE_API_KEY", "")
+BANK_STATEMENT_MODEL_ID = "77d71fe3-2547-482e-94b3-a3a6c3d97028"
+MASTER_PASSWORD = "922626"
 
+# --- SESSION STATE INIT ---
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+if 'current_user' not in st.session_state:
+    st.session_state.current_user = None
+if 'user_id' not in st.session_state:
+    st.session_state.user_id = None
+if 'onboarding_complete' not in st.session_state:
+    st.session_state.onboarding_complete = {}
+if 'onboarding_step' not in st.session_state:
+    st.session_state.onboarding_step = 1
+if 'onboarding_data' not in st.session_state:
+    st.session_state.onboarding_data = {
+        'months_uploaded': {},
+        'family_size': {'adults': 1, 'children': 0},
+        'all_transactions': []
+    }
+if 'all_user_data' not in st.session_state:
+    st.session_state.all_user_data = {}
+
+# --- LOGO FUNCTION ---
 def render_devin_logo(size="large"):
-    """Render D.E.V.I.N logo - full on login, small on dashboard"""
     import base64
-    
-    # Try multiple paths (GitHub repo, then uploads as fallback)
     logo_paths = ["Devin.png", "devin_logo.png", "/mnt/user-data/uploads/Devin.png"]
     logo_data = None
     
@@ -201,42 +163,30 @@ def render_devin_logo(size="large"):
             continue
     
     if not logo_data:
-        # Fallback if image not found - show emoji version
         st.markdown("""
         <div style="text-align: center; margin-bottom: 30px;">
             <div style="font-size: 4rem;">💼</div>
-            <h1 style="font-size: 3.5rem; font-weight: 900; background: linear-gradient(90deg, #FFB84D 0%, #F4A460 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 0.5rem; margin: 10px 0 5px 0;">D.E.V.I.N</h1>
-            <p style="font-size: 0.95rem; color: #FFB84D; font-weight: 600; letter-spacing: 0.1rem; margin: 0;">DAILY EXPENSE VERIFICATION INCOME NETWORK</p>
+            <h1 style="font-size: 3.5rem;">D.E.V.I.N</h1>
+            <p style="color: #FFB84D;">DAILY EXPENSE VERIFICATION INCOME NETWORK</p>
         </div>
         """, unsafe_allow_html=True)
         return
     
     if size == "large":
-        # Full logo for login page
         st.markdown(f"""
         <div style="text-align: center; margin-bottom: 30px;">
-            <img src="data:image/png;base64,{logo_data}" style="width: 100%; max-width: 400px; height: auto; margin: 0 auto; display: block; border-radius: 15px; box-shadow: 0 8px 20px rgba(255, 184, 77, 0.3);">
+            <img src="data:image/png;base64,{logo_data}" style="width: 100%; max-width: 400px; border-radius: 15px; box-shadow: 0 8px 20px rgba(255, 184, 77, 0.3);">
         </div>
         """, unsafe_allow_html=True)
     else:
-        # Small logo for dashboard
         st.markdown(f"""
         <div style="text-align: center; margin-bottom: 20px;">
-            <img src="data:image/png;base64,{logo_data}" style="width: 150px; height: auto; margin: 0 auto; display: block; border-radius: 10px; box-shadow: 0 4px 10px rgba(255, 184, 77, 0.2);">
+            <img src="data:image/png;base64,{logo_data}" style="width: 150px; border-radius: 10px; box-shadow: 0 4px 10px rgba(255, 184, 77, 0.2);">
         </div>
         """, unsafe_allow_html=True)
 
-# --- MINDEE CONFIG ---
-try:
-    mindee_api_key = os.getenv("MINDEE_API_KEY") or st.secrets.get("MINDEE_API_KEY", "")
-except:
-    mindee_api_key = ""
-
-BANK_STATEMENT_MODEL_ID = "77d71fe3-2547-482e-94b3-a3a6c3d97028"
-
-# --- DATABASE FUNCTIONS (Hybrid Mode) ---
+# --- DATABASE FUNCTIONS ---
 def get_or_create_user(username):
-    """Get/create user - works with or without database"""
     if USE_DATABASE:
         try:
             result = supabase.table('users').select('id').eq('username', username).execute()
@@ -247,23 +197,9 @@ def get_or_create_user(username):
                 return result.data[0]['id']
         except:
             pass
-    return username  # Fallback to username as ID
-
-def load_user_transactions(user_id):
-    """Load transactions - database or session"""
-    if USE_DATABASE:
-        try:
-            result = supabase.table('transactions').select('*').eq('user_id', user_id).order('date', desc=True).execute()
-            if result.data:
-                return [{'Date': t['date'], 'Vendor': t['vendor'], 'Amount': float(t['amount']), 
-                        'Category': t['category'], 'Type': t['type'], 'Notes': t['notes'], 
-                        'Card': t.get('card_name', '')} for t in result.data]
-        except:
-            pass
-    return st.session_state.all_user_data.get(user_id, {}).get('transactions', [])
+    return username
 
 def save_transaction(user_id, transaction):
-    """Save transaction - database or session"""
     if USE_DATABASE:
         try:
             data = {
@@ -281,25 +217,24 @@ def save_transaction(user_id, transaction):
         except:
             pass
     
-    # Fallback to session
     if user_id not in st.session_state.all_user_data:
-        st.session_state.all_user_data[user_id] = {'transactions': [], 'budget': {}}
+        st.session_state.all_user_data[user_id] = {'transactions': [], 'budget': {}, 'goals': []}
     st.session_state.all_user_data[user_id]['transactions'].append(transaction)
     return True
 
-def load_user_budget(user_id):
-    """Load budget - database or session"""
+def load_user_transactions(user_id):
     if USE_DATABASE:
         try:
-            result = supabase.table('budgets').select('*').eq('user_id', user_id).execute()
+            result = supabase.table('transactions').select('*').eq('user_id', user_id).order('date', desc=True).execute()
             if result.data:
-                return {item['category']: float(item['amount']) for item in result.data}
+                return [{'Date': t['date'], 'Vendor': t['vendor'], 'Amount': float(t['amount']), 
+                        'Category': t['category'], 'Type': t['type'], 'Notes': t['notes'], 
+                        'Card': t.get('card_name', '')} for t in result.data]
         except:
             pass
-    return st.session_state.all_user_data.get(user_id, {}).get('budget', {})
+    return st.session_state.all_user_data.get(user_id, {}).get('transactions', [])
 
 def save_user_budget(user_id, budget_dict):
-    """Save budget - database or session"""
     if USE_DATABASE:
         try:
             supabase.table('budgets').delete().eq('user_id', user_id).execute()
@@ -309,104 +244,176 @@ def save_user_budget(user_id, budget_dict):
         except:
             pass
     
-    # Fallback
     if user_id not in st.session_state.all_user_data:
-        st.session_state.all_user_data[user_id] = {'transactions': [], 'budget': {}}
+        st.session_state.all_user_data[user_id] = {'transactions': [], 'budget': {}, 'goals': []}
     st.session_state.all_user_data[user_id]['budget'] = budget_dict
     return True
 
+def load_user_budget(user_id):
+    if USE_DATABASE:
+        try:
+            result = supabase.table('budgets').select('*').eq('user_id', user_id).execute()
+            if result.data:
+                return {item['category']: float(item['amount']) for item in result.data}
+        except:
+            pass
+    return st.session_state.all_user_data.get(user_id, {}).get('budget', {})
+
 # --- MINDEE API ---
-def analyze_with_mindee(image_bytes, filename, api_key, model_id):
-    """Call Mindee API v2"""
+def analyze_with_mindee(image_bytes, filename):
     enqueue_url = "https://api-v2.mindee.net/v2/products/extraction/enqueue"
-    
-    headers = {"Authorization": api_key}
+    headers = {"Authorization": MINDEE_API_KEY}
     files = {"file": (filename, image_bytes, "image/jpeg")}
-    data = {"model_id": model_id}
+    data = {"model_id": BANK_STATEMENT_MODEL_ID}
     
     response = requests.post(enqueue_url, headers=headers, files=files, data=data)
-    
     if response.status_code not in [200, 201, 202]:
-        raise Exception(f"API Error {response.status_code}: {response.text}")
+        raise Exception(f"API Error {response.status_code}")
     
-    result = response.json()
-    job_id = result.get('job', {}).get('id')
-    
+    job_id = response.json().get('job', {}).get('id')
     if not job_id:
-        raise Exception("No job ID returned")
+        raise Exception("No job ID")
     
-    # Poll for results
     job_url = f"https://api-v2.mindee.net/v2/jobs/{job_id}"
-    
-    for attempt in range(60):
+    for _ in range(60):
         time.sleep(1)
         poll_response = requests.get(job_url, headers=headers, params={"redirect": "false"})
-        
         if poll_response.status_code == 200:
             poll_data = poll_response.json()
-            job_status = poll_data.get('job', {}).get('status')
-            
-            if job_status == 'Processed':
+            if poll_data.get('job', {}).get('status') == 'Processed':
                 result_url = poll_data.get('job', {}).get('result_url')
                 if result_url:
-                    result_response = requests.get(result_url, headers=headers)
-                    if result_response.status_code == 200:
-                        return result_response.json()
-                raise Exception("Result URL not available")
-            elif job_status == 'Failed':
-                error = poll_data.get('job', {}).get('error', {})
-                raise Exception(f"Processing failed: {error}")
-    
-    raise Exception("Timeout (60s)")
+                    return requests.get(result_url, headers=headers).json()
+    raise Exception("Timeout")
 
 def categorize_transaction(description):
-    """Auto-categorize based on merchant"""
     desc_lower = description.lower()
-    
-    # EXCLUDE payments first
-    payment_keywords = ['payment thank you', 'automatic payment', 'online payment', 'autopay', 'payment received']
-    if any(kw in desc_lower for kw in payment_keywords):
+    if any(kw in desc_lower for kw in ['payment thank you', 'automatic payment', 'online payment']):
         return 'PAYMENT_EXCLUDE'
-    
-    # Groceries
-    if any(word in desc_lower for word in ['costco whse', 'walmart', 'target', 'vons', 'sprouts', 'trader joe', 'whole foods', 'aldi', 'safeway', 'stater bros']):
+    if any(w in desc_lower for w in ['costco whse', 'walmart', 'target', 'vons', 'sprouts', 'trader joe', 'whole foods', 'aldi']):
         return "Groceries"
-    # Dining Out
-    elif any(word in desc_lower for word in ['chipotle', 'chick-fil-a', 'shake shack', 'starbucks', 'mcdonald', 'in-n-out', 'panda express', 'wendy', 'p.f.chang', 'pizza', 'taco', 'burger', 'subway', 'restaurant', 'cafe']):
+    elif any(w in desc_lower for w in ['chipotle', 'chick-fil-a', 'shake shack', 'starbucks', 'mcdonald', 'restaurant']):
         return "Dining Out"
-    # Gas
-    elif any(word in desc_lower for word in ['gas', 'fuel', 'shell', 'chevron', 'exxon', 'mobil', 'costco gas', 'vons fuel']):
+    elif any(w in desc_lower for w in ['gas', 'fuel', 'shell', 'chevron']):
         return "Gas/Fuel"
-    # Entertainment
-    elif any(word in desc_lower for word in ['netflix', 'cinema', 'movie', 'theater', 'spotify', 'hulu']):
+    elif any(w in desc_lower for w in ['netflix', 'cinema', 'movie']):
         return "Entertainment"
-    # Home
-    elif any(word in desc_lower for word in ['home depot', 'lowes', 'ace hardware']):
-        return "Rent/Mortgage"
-    # Healthcare
-    elif any(word in desc_lower for word in ['pharmacy', 'cvs', 'walgreens', 'kaiser', 'medical']):
-        return "Healthcare"
+    elif any(w in desc_lower for w in ['home depot', 'lowes']):
+        return "Home"
     else:
-        return "Groceries"  # Default
+        return "Other"
 
-# --- LOGIN ---
-MASTER_PASSWORD = "922626"
+# --- SMART RECOMMENDATIONS ---
+def generate_recommendations(transactions, budget):
+    """Generate money-saving recommendations based on spending patterns"""
+    recommendations = []
+    
+    # Analyze spending by category
+    category_spending = defaultdict(float)
+    for t in transactions:
+        if t['Type'] == 'Expense':
+            category_spending[t['Category']] += t['Amount']
+    
+    # Dining Out recommendations
+    if category_spending.get('Dining Out', 0) > 300:
+        savings = category_spending['Dining Out'] * 0.5
+        recommendations.append({
+            'category': 'Dining Out',
+            'current': category_spending['Dining Out'],
+            'suggestion': f"Reduce dining out by 50% - cook at home 3-4 days/week",
+            'potential_savings': savings,
+            'difficulty': 'Medium'
+        })
+    
+    # Groceries recommendations
+    if category_spending.get('Groceries', 0) > 600:
+        savings = category_spending['Groceries'] * 0.2
+        recommendations.append({
+            'category': 'Groceries',
+            'current': category_spending['Groceries'],
+            'suggestion': f"Meal prep and use store brands - save 20%",
+            'potential_savings': savings,
+            'difficulty': 'Easy'
+        })
+    
+    # Entertainment
+    if category_spending.get('Entertainment', 0) > 150:
+        savings = 50
+        recommendations.append({
+            'category': 'Entertainment',
+            'current': category_spending['Entertainment'],
+            'suggestion': f"Share streaming services with family - save on subscriptions",
+            'potential_savings': savings,
+            'difficulty': 'Easy'
+        })
+    
+    return recommendations
 
-if 'authenticated' not in st.session_state:
-    st.session_state.authenticated = False
-if 'current_user' not in st.session_state:
-    st.session_state.current_user = None
-if 'user_id' not in st.session_state:
-    st.session_state.user_id = None
-if 'all_user_data' not in st.session_state:
-    st.session_state.all_user_data = {}
+# --- ALERT SYSTEM ---
+def check_budget_alerts(transactions, budget):
+    """Check for budget alerts and warnings"""
+    alerts = []
+    
+    # Get current month spending
+    current_month = datetime.now().strftime("%Y-%m")
+    month_spending = defaultdict(float)
+    
+    for t in transactions:
+        if t['Type'] == 'Expense':
+            try:
+                trans_month = datetime.strptime(t['Date'], "%Y-%m-%d").strftime("%Y-%m")
+                if trans_month == current_month:
+                    month_spending[t['Category']] += t['Amount']
+            except:
+                pass
+    
+    # Check each budget category
+    for category, budget_amount in budget.items():
+        if budget_amount > 0:
+            spent = month_spending.get(category, 0)
+            percent = (spent / budget_amount) * 100
+            
+            if percent >= 100:
+                alerts.append({
+                    'level': 'danger',
+                    'category': category,
+                    'message': f"🔴 {category}: ${spent:,.0f}/${budget_amount:,.0f} ({percent:.0f}%) - OVER BUDGET!",
+                    'percent': percent
+                })
+            elif percent >= 80:
+                alerts.append({
+                    'level': 'warning',
+                    'category': category,
+                    'message': f"⚠️ {category}: ${spent:,.0f}/${budget_amount:,.0f} ({percent:.0f}%) - Getting close!",
+                    'percent': percent
+                })
+    
+    # Check if we're 2 weeks from month end
+    today = datetime.now()
+    days_left = calendar.monthrange(today.year, today.month)[1] - today.day
+    
+    if days_left <= 14:
+        # Project month-end spending
+        days_elapsed = today.day
+        for category, spent in month_spending.items():
+            budget_amount = budget.get(category, 0)
+            if budget_amount > 0:
+                projected = (spent / days_elapsed) * calendar.monthrange(today.year, today.month)[1]
+                if projected > budget_amount * 1.1:  # Projected to be 10% over
+                    alerts.append({
+                        'level': 'warning',
+                        'category': category,
+                        'message': f"📊 {category}: Projected to overspend by ${projected - budget_amount:,.0f} this month",
+                        'percent': (projected / budget_amount) * 100
+                    })
+    
+    return sorted(alerts, key=lambda x: x['percent'], reverse=True)
 
+# --- LOGIN PAGE ---
 def login_page():
-    """Display login"""
-    st.markdown("<div class='login-box'>", unsafe_allow_html=True)
+    st.markdown("<div style='max-width: 500px; margin: 50px auto; padding: 40px; background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(44, 62, 80, 0.15);'>", unsafe_allow_html=True)
     
-    render_devin_logo()
-    
+    render_devin_logo("large")
     st.markdown("### Welcome! Please login")
     
     with st.form("login_form"):
@@ -429,211 +436,659 @@ def login_page():
                 st.session_state.current_user = username
                 st.session_state.user_id = get_or_create_user(username)
                 
-                # Create user data if doesn't exist (for fallback mode)
-                if username not in st.session_state.all_user_data:
-                    st.session_state.all_user_data[username] = {
-                        'transactions': [],
-                        'budget': {}
-                    }
+                # Check if onboarding is complete
+                if username not in st.session_state.onboarding_complete:
+                    st.session_state.onboarding_complete[username] = False
                 
                 st.success(f"✅ Welcome, {username}!")
                 st.rerun()
     
     st.markdown("</div>", unsafe_allow_html=True)
-    st.info("⚠️ Demo Mode: Data clears when you close the browser")
 
 if not st.session_state.authenticated:
     login_page()
     st.stop()
 
-# --- MAIN APP ---
+# Check if onboarding is needed
 current_user = st.session_state.current_user
 user_id = st.session_state.user_id
-user_data = st.session_state.all_user_data.get(current_user, {'transactions': [], 'budget': {}})
 
-# Load from database if available
-transactions = load_user_transactions(user_id)
-saved_budget = load_user_budget(user_id)
-
-# Sidebar
-with st.sidebar:
-    st.markdown(f"# 🎯 {current_user}'s Dashboard")
+if not st.session_state.onboarding_complete.get(current_user, False):
+    # ONBOARDING WIZARD
+    render_devin_logo("small")
+    st.markdown("# 🎯 Welcome to D.E.V.I.N!")
+    st.markdown("*Let's set up your financial profile in just a few minutes*")
     
-    if st.button("🚪 Logout", use_container_width=True):
-        st.session_state.authenticated = False
-        st.session_state.current_user = None
-        st.rerun()
+    # Progress bar
+    total_steps = 6
+    current_step = st.session_state.onboarding_step
+    progress = (current_step / total_steps) * 100
+    
+    st.markdown(f"""
+    <div style="margin: 20px 0;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+            <span><b>Step {current_step} of {total_steps}</b></span>
+            <span>{progress:.0f}% Complete</span>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: {progress}%"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     st.divider()
     
-    if not mindee_api_key:
-        st.warning("⚠️ Set MINDEE_API_KEY")
-        mindee_api_key = st.text_input("API Key:", type="password")
-    
-    st.divider()
-    st.markdown("### 💰 Income")
-    total_income = st.number_input("Monthly Income", value=0, step=100)
-    
-    st.divider()
-    st.markdown("### 📊 Budget")
-    
-    categories = {}
-    
-    with st.expander("🏠 Housing"):
-        categories["Rent/Mortgage"] = st.slider("Rent/Mortgage", 0, 5000, saved_budget.get("Rent/Mortgage", 0), 50)
-        categories["Utilities"] = st.slider("Utilities", 0, 500, saved_budget.get("Utilities", 0), 10)
-    
-    with st.expander("🚗 Transportation"):
-        categories["Car Payment"] = st.slider("Car Payment", 0, 1000, saved_budget.get("Car Payment", 0), 25)
-        categories["Gas/Fuel"] = st.slider("Gas/Fuel", 0, 500, saved_budget.get("Gas/Fuel", 0), 10)
-        categories["Insurance"] = st.slider("Insurance", 0, 500, saved_budget.get("Insurance", 0), 10)
-    
-    with st.expander("🍎 Food"):
-        categories["Groceries"] = st.slider("Groceries", 0, 1000, saved_budget.get("Groceries", 0), 25)
-        categories["Dining Out"] = st.slider("Dining Out", 0, 500, saved_budget.get("Dining Out", 0), 25)
-    
-    with st.expander("💳 Debt & Savings"):
-        categories["Credit Cards"] = st.slider("Credit Cards", 0, 1000, saved_budget.get("Credit Cards", 0), 25)
-        categories["Savings"] = st.slider("Savings", 0, 2000, saved_budget.get("Savings", 0), 50)
-    
-    with st.expander("🎯 Lifestyle"):
-        categories["Entertainment"] = st.slider("Entertainment", 0, 300, saved_budget.get("Entertainment", 0), 10)
-        categories["Tech/AI"] = st.slider("Tech/AI", 0, 300, saved_budget.get("Tech/AI", 0), 10)
-        categories["Healthcare"] = st.slider("Healthcare", 0, 500, saved_budget.get("Healthcare", 0), 25)
-        categories["Personal Care"] = st.slider("Personal Care", 0, 300, saved_budget.get("Personal Care", 0), 25)
-    
-    # Save budget
-    if st.button("💾 Save Budget", use_container_width=True):
-        if save_user_budget(user_id, categories):
-            st.success("✅ Budget saved!")
-        else:
-            st.error("Failed to save budget")
-    
-    total_budgeted = sum(categories.values())
-    remaining = total_income - total_budgeted
-    
-    st.divider()
-    st.markdown("### 📈 Summary")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Income", f"${total_income:,.0f}")
-    with col2:
-        st.metric("Budgeted", f"${total_budgeted:,.0f}")
-    
-    if total_income > 0:
-        st.progress(min(total_budgeted/total_income, 1.0))
-    
-    if remaining < 0:
-        st.error(f"Over: ${abs(remaining):,.0f}")
-    else:
-        st.success(f"Left: ${remaining:,.0f}")
-
-# Main content
-render_devin_logo("small")
-st.markdown(f"# {current_user}'s Financial Dashboard")
-st.markdown("*Daily Expense Verification Income Network*")
-
-if not USE_DATABASE:
-    st.warning("⚠️ Demo Mode: Data is temporary and will be lost when you close the browser")
-else:
-    st.info("✅ Connected to Database: Your data is saved permanently!")
-
-# Metrics
-total_spent = sum([t['Amount'] for t in transactions if t['Type'] == 'Expense'])
-total_earned = sum([t['Amount'] for t in transactions if t['Type'] == 'Income'])
-net_savings = total_earned - total_spent
-
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.metric("💰 Total Income", f"${total_earned:,.0f}")
-with col2:
-    st.metric("💸 Total Spent", f"${total_spent:,.0f}")
-with col3:
-    st.metric("📊 Net Savings", f"${net_savings:,.0f}")
-with col4:
-    st.metric("📝 Transactions", len(transactions))
-
-st.divider()
-
-# Tabs
-tab1, tab2, tab3 = st.tabs(["🏦 Transactions", "📊 Analytics", "📤 Upload Statement"])
-
-with tab1:
-    st.markdown("### 🏦 All Transactions")
-    
-    if transactions:
-        df = pd.DataFrame(transactions)
-        st.dataframe(df, use_container_width=True, hide_index=True, height=400)
+    # STEP 1: Introduction
+    if current_step == 1:
+        st.markdown("## Step 1: Gather Your Documents 📄")
+        st.markdown("""
+        <div class="wizard-step">
+        <h3>📋 What You'll Need:</h3>
+        <p>To give you the most accurate financial picture, please gather:</p>
+        <ul>
+            <li>✅ <b>Bank statements</b> from the last 3 months</li>
+            <li>✅ <b>Credit card statements</b> from the last 3 months</li>
+            <li>✅ <b>Other accounts</b> (PayPal, Venmo, Cash App, etc.)</li>
+        </ul>
+        <p><i>💡 Tip: You can usually download these as PDFs from your bank's website</i></p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        csv = df.to_csv(index=False)
-        st.download_button("📥 Export CSV", csv, "transactions.csv", "text/csv")
-    else:
-        st.info("No transactions yet! Upload a statement to get started.")
-
-with tab2:
-    st.markdown("### 📊 Spending Analytics")
-    
-    if transactions:
-        df = pd.DataFrame(transactions)
-        expenses = df[df['Type'] == 'Expense']
+        st.info("📌 **Note:** You can skip ONE month if needed, but having all 3 months gives us the best insight into your spending patterns!")
         
-        if not expenses.empty:
-            category_totals = expenses.groupby('Category')['Amount'].sum().reset_index()
+        if st.button("✅ I have my documents ready - Let's begin!", type="primary", use_container_width=True):
+            st.session_state.onboarding_step = 2
+            st.rerun()
+    
+    # STEPS 2-4: Upload months
+    elif current_step in [2, 3, 4]:
+        month_index = current_step - 2  # 0, 1, 2
+        month_names = ["Most Recent Month", "2 Months Ago", "3 Months Ago"]
+        
+        st.markdown(f"## Step {current_step}: Upload {month_names[month_index]} 📤")
+        
+        st.markdown(f"""
+        <div class="wizard-step">
+        <h3>Upload statements for {month_names[month_index]}</h3>
+        <p>Add all accounts you used during this period</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Account uploader
+        if f'month_{month_index}_accounts' not in st.session_state.onboarding_data:
+            st.session_state.onboarding_data[f'month_{month_index}_accounts'] = []
+        
+        num_accounts = len(st.session_state.onboarding_data[f'month_{month_index}_accounts'])
+        
+        # Add account button
+        if st.button("➕ Add Another Account"):
+            st.session_state.onboarding_data[f'month_{month_index}_accounts'].append({
+                'name': '',
+                'type': 'Bank Account',
+                'file': None
+            })
+            st.rerun()
+        
+        # Show account upload forms
+        for idx in range(num_accounts):
+            with st.expander(f"📊 Account #{idx + 1}", expanded=True):
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    account_name = st.text_input(
+                        "Account Name", 
+                        value=st.session_state.onboarding_data[f'month_{month_index}_accounts'][idx].get('name', ''),
+                        placeholder="e.g., Wells Fargo Checking",
+                        key=f"name_{month_index}_{idx}"
+                    )
+                with col2:
+                    account_type = st.selectbox(
+                        "Type",
+                        ["Bank Account", "Credit Card", "PayPal", "Venmo", "Cash App", "Other"],
+                        key=f"type_{month_index}_{idx}"
+                    )
+                
+                uploaded_file = st.file_uploader(
+                    "Upload Statement", 
+                    type=['pdf', 'png', 'jpg', 'jpeg'],
+                    key=f"file_{month_index}_{idx}"
+                )
+                
+                if account_name:
+                    st.session_state.onboarding_data[f'month_{month_index}_accounts'][idx]['name'] = account_name
+                    st.session_state.onboarding_data[f'month_{month_index}_accounts'][idx]['type'] = account_type
+                    st.session_state.onboarding_data[f'month_{month_index}_accounts'][idx]['file'] = uploaded_file
+        
+        st.divider()
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        
+        with col1:
+            if st.button("⬅️ Back"):
+                st.session_state.onboarding_step -= 1
+                st.rerun()
+        
+        with col2:
+            if current_step < 4:
+                skip_text = "⏭️ Skip this month" if num_accounts == 0 else "Next Month →"
+                if st.button(skip_text, type="primary" if num_accounts > 0 else "secondary", use_container_width=True):
+                    if num_accounts == 0:
+                        st.warning("⚠️ Skipping this month will reduce accuracy of your budget analysis!")
+                        time.sleep(1)
+                    st.session_state.onboarding_step += 1
+                    st.rerun()
+        
+        with col3:
+            if st.button("Continue →", type="primary", disabled=num_accounts == 0):
+                st.session_state.onboarding_step += 1
+                st.rerun()
+    
+    # STEP 5: Family Info
+    elif current_step == 5:
+        st.markdown("## Step 5: Family Information 👨‍👩‍👧‍👦")
+        
+        st.markdown("""
+        <div class="wizard-step">
+        <h3>Help us personalize your budget</h3>
+        <p>Family size helps us suggest appropriate budgets for groceries, utilities, and other household expenses.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            adults = st.number_input("Number of Adults", min_value=1, max_value=10, value=1, step=1)
+        with col2:
+            children = st.number_input("Number of Children", min_value=0, max_value=10, value=0, step=1)
+        
+        st.session_state.onboarding_data['family_size'] = {'adults': adults, 'children': children}
+        
+        st.info(f"💡 Household size: {adults + children} people ({adults} adults, {children} children)")
+        
+        st.divider()
+        
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            if st.button("⬅️ Back"):
+                st.session_state.onboarding_step -= 1
+                st.rerun()
+        with col2:
+            if st.button("Analyze My Finances →", type="primary", use_container_width=True):
+                st.session_state.onboarding_step = 6
+                st.rerun()
+    
+    # STEP 6: Analysis
+    elif current_step == 6:
+        st.markdown("## Step 6: Analyzing Your Finances 🔍")
+        
+        with st.spinner("🤖 Processing your statements with AI..."):
+            all_transactions = []
             
-            fig = px.pie(category_totals, values='Amount', names='Category', title='💰 Spending by Category', hole=0.4)
-            fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='#E0E0E0')
-            st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("Add transactions to see analytics!")
+            # Process all uploaded statements
+            for month_idx in range(3):
+                accounts = st.session_state.onboarding_data.get(f'month_{month_idx}_accounts', [])
+                for account in accounts:
+                    if account.get('file'):
+                        try:
+                            result = analyze_with_mindee(account['file'].getvalue(), account['file'].name)
+                            
+                            # Extract transactions
+                            inference = result.get('inference', {})
+                            line_items = inference.get('result', {}).get('fields', {}).get('line_items', {}).get('items', [])
+                            
+                            for item in line_items:
+                                if isinstance(item, dict):
+                                    fields = item.get('fields', {})
+                                    desc = fields.get('description', {}).get('value', 'Unknown')
+                                    amount = fields.get('total_price', {}).get('value', 0.0)
+                                    
+                                    if not desc or amount is None:
+                                        continue
+                                    
+                                    category = categorize_transaction(desc)
+                                    if category == 'PAYMENT_EXCLUDE':
+                                        continue
+                                    
+                                    all_transactions.append({
+                                        'Date': datetime.now().strftime("%Y-%m-%d"),
+                                        'Vendor': desc,
+                                        'Amount': abs(amount),
+                                        'Category': category,
+                                        'Type': 'Expense',
+                                        'Notes': f"From {account['name']}",
+                                        'Card': account['name']
+                                    })
+                        except Exception as e:
+                            st.warning(f"Could not process {account['name']}: {str(e)}")
+        
+        # Show results
+        st.success(f"✅ Analyzed {len(all_transactions)} transactions!")
+        
+        # Calculate insights
+        total_spending = sum([t['Amount'] for t in all_transactions])
+        avg_monthly = total_spending / 3
+        
+        category_totals = defaultdict(float)
+        for t in all_transactions:
+            category_totals[t['Category']] += t['Amount']
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Analyzed", f"${total_spending:,.0f}")
+        with col2:
+            st.metric("Avg Monthly Spending", f"${avg_monthly:,.0f}")
+        with col3:
+            st.metric("Transactions", len(all_transactions))
+        
+        st.markdown("### 📊 Spending Breakdown")
+        for cat, amount in sorted(category_totals.items(), key=lambda x: x[1], reverse=True):
+            monthly_avg = amount / 3
+            st.write(f"**{cat}:** ${monthly_avg:,.0f}/month")
+        
+        # Save transactions
+        if st.button("🎉 Complete Setup & Start Tracking!", type="primary", use_container_width=True):
+            # Save all transactions
+            for trans in all_transactions:
+                save_transaction(user_id, trans)
+            
+            # Mark onboarding complete
+            st.session_state.onboarding_complete[current_user] = True
+            st.balloons()
+            st.success("🎉 Setup complete! Redirecting to your dashboard...")
+            time.sleep(2)
+            st.rerun()
 
-with tab3:
-    st.markdown("### 📤 Upload Bank/Credit Card Statement")
+else:
+    # ====== MAIN APP (after onboarding) ======
     
-    st.markdown("**Name this account:**")
-    card_name = st.text_input("Account name (e.g., 'Wells Fargo Credit', 'Chase Sapphire')", "")
+    # Load user data
+    transactions = load_user_transactions(user_id)
+    saved_budget = load_user_budget(user_id)
     
-    uploaded_file = st.file_uploader("Upload statement", type=['pdf', 'png', 'jpg', 'jpeg'])
+    # Sidebar
+    with st.sidebar:
+        st.markdown(f"# 🎯 {current_user}")
+        
+        if st.button("🚪 Logout", use_container_width=True):
+            st.session_state.authenticated = False
+            st.session_state.current_user = None
+            st.rerun()
+        
+        if USE_DATABASE:
+            st.success("🗄️ Database Connected")
+        else:
+            st.warning("⚠️ Demo Mode")
+        
+        st.divider()
+        
+        # Income
+        st.markdown("### 💰 Income")
+        total_income = st.number_input("Monthly Income", value=0, step=100)
+        
+        st.divider()
+        
+        # Budget
+        st.markdown("### 📊 Budget")
+        
+        categories = {}
+        
+        with st.expander("🏠 Housing"):
+            categories["Rent/Mortgage"] = st.slider("Rent/Mortgage", 0, 5000, saved_budget.get("Rent/Mortgage", 0), 50)
+            categories["Utilities"] = st.slider("Utilities", 0, 500, saved_budget.get("Utilities", 0), 10)
+        
+        with st.expander("🚗 Transportation"):
+            categories["Car Payment"] = st.slider("Car Payment", 0, 1000, saved_budget.get("Car Payment", 0), 25)
+            categories["Gas/Fuel"] = st.slider("Gas/Fuel", 0, 500, saved_budget.get("Gas/Fuel", 0), 10)
+            categories["Insurance"] = st.slider("Insurance", 0, 500, saved_budget.get("Insurance", 0), 10)
+        
+        with st.expander("🍎 Food"):
+            categories["Groceries"] = st.slider("Groceries", 0, 1000, saved_budget.get("Groceries", 0), 25)
+            categories["Dining Out"] = st.slider("Dining Out", 0, 500, saved_budget.get("Dining Out", 0), 25)
+        
+        with st.expander("💳 Debt & Savings"):
+            categories["Credit Cards"] = st.slider("Credit Cards", 0, 1000, saved_budget.get("Credit Cards", 0), 25)
+            categories["Savings"] = st.slider("Savings", 0, 2000, saved_budget.get("Savings", 0), 50)
+        
+        with st.expander("🎯 Lifestyle"):
+            categories["Entertainment"] = st.slider("Entertainment", 0, 300, saved_budget.get("Entertainment", 0), 10)
+            categories["Other"] = st.slider("Other", 0, 500, saved_budget.get("Other", 0), 25)
+        
+        if st.button("💾 Save Budget", use_container_width=True):
+            if save_user_budget(user_id, categories):
+                st.success("✅ Saved!")
+        
+        total_budgeted = sum(categories.values())
+        remaining = total_income - total_budgeted
+        
+        st.divider()
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Income", f"${total_income:,.0f}")
+        with col2:
+            st.metric("Budgeted", f"${total_budgeted:,.0f}")
+        
+        if total_income > 0:
+            st.progress(min(total_budgeted/total_income, 1.0))
+        
+        if remaining < 0:
+            st.error(f"Over: ${abs(remaining):,.0f}")
+        else:
+            st.success(f"Left: ${remaining:,.0f}")
     
-    if uploaded_file and card_name:
-        if st.button("🤖 Analyze Statement", type="primary"):
-            if not mindee_api_key:
-                st.error("⚠️ Mindee API key required!")
+    # Main content
+    render_devin_logo("small")
+    st.markdown(f"# {current_user}'s Financial Dashboard")
+    st.markdown("*Daily Expense Verification Income Network*")
+    
+    if USE_DATABASE:
+        st.info("✅ Your data is saved permanently!")
+    
+    # ===== ALERTS SECTION =====
+    alerts = check_budget_alerts(transactions, categories)
+    
+    if alerts:
+        st.markdown("## 🚨 Budget Alerts")
+        
+        for alert in alerts[:5]:  # Show top 5 alerts
+            if alert['level'] == 'danger':
+                st.markdown(f"""
+                <div class="alert-danger">
+                    <b>{alert['message']}</b>
+                </div>
+                """, unsafe_allow_html=True)
+            elif alert['level'] == 'warning':
+                st.markdown(f"""
+                <div class="alert-warning">
+                    <b>{alert['message']}</b>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    st.divider()
+    
+    # Metrics
+    total_spent = sum([t['Amount'] for t in transactions if t['Type'] == 'Expense'])
+    total_earned = sum([t['Amount'] for t in transactions if t['Type'] == 'Income'])
+    net_savings = total_earned - total_spent
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("💰 Total Income", f"${total_earned:,.0f}")
+    with col2:
+        st.metric("💸 Total Spent", f"${total_spent:,.0f}")
+    with col3:
+        st.metric("📊 Net Savings", f"${net_savings:,.0f}")
+    with col4:
+        st.metric("📝 Transactions", len(transactions))
+    
+    st.divider()
+    
+    # Tabs
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Overview", "💡 Recommendations", "🎯 Goals", "🔮 Future Planner", "📤 Upload"])
+    
+    # TAB 1: Overview
+    with tab1:
+        st.markdown("### 📊 Spending Overview")
+        
+        if transactions:
+            df = pd.DataFrame(transactions)
+            expenses = df[df['Type'] == 'Expense']
+            
+            if not expenses.empty:
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    # Pie chart
+                    category_totals = expenses.groupby('Category')['Amount'].sum().reset_index()
+                    fig = px.pie(category_totals, values='Amount', names='Category', 
+                                title='Spending by Category', hole=0.4)
+                    fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                with col2:
+                    # Bar chart - Budget vs Actual
+                    budget_data = []
+                    for cat, budget_amt in categories.items():
+                        actual = expenses[expenses['Category'] == cat]['Amount'].sum() if cat in expenses['Category'].values else 0
+                        budget_data.append({
+                            'Category': cat,
+                            'Budgeted': budget_amt,
+                            'Actual': actual
+                        })
+                    
+                    budget_df = pd.DataFrame(budget_data)
+                    fig2 = go.Figure()
+                    fig2.add_trace(go.Bar(name='Budgeted', x=budget_df['Category'], y=budget_df['Budgeted'], marker_color='#FFB84D'))
+                    fig2.add_trace(go.Bar(name='Actual', x=budget_df['Category'], y=budget_df['Actual'], marker_color='#2C3E50'))
+                    fig2.update_layout(title='Budget vs Actual', barmode='group', plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+                    st.plotly_chart(fig2, use_container_width=True)
+                
+                # Recent transactions
+                st.markdown("### 📋 Recent Transactions")
+                st.dataframe(df.head(10), use_container_width=True, hide_index=True)
+        else:
+            st.info("No transactions yet! Upload a statement to get started.")
+    
+    # TAB 2: Recommendations
+    with tab2:
+        st.markdown("### 💡 Smart Money-Saving Recommendations")
+        
+        if transactions:
+            recommendations = generate_recommendations(transactions, categories)
+            
+            if recommendations:
+                total_potential_savings = sum([r['potential_savings'] for r in recommendations])
+                
+                st.success(f"💰 **Potential Monthly Savings: ${total_potential_savings:,.0f}**")
+                
+                for rec in recommendations:
+                    difficulty_color = {'Easy': '🟢', 'Medium': '🟡', 'Hard': '🔴'}
+                    
+                    st.markdown(f"""
+                    <div class="wizard-step">
+                        <h4>{difficulty_color.get(rec['difficulty'], '🟡')} {rec['category']}</h4>
+                        <p><b>Current Spending:</b> ${rec['current']:,.0f}/month</p>
+                        <p><b>Recommendation:</b> {rec['suggestion']}</p>
+                        <p><b>Potential Savings:</b> <span style="color: #FFB84D; font-weight: bold;">${rec['potential_savings']:,.0f}/month</span></p>
+                        <p><b>Difficulty:</b> {rec['difficulty']}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
             else:
+                st.info("Your spending looks good! Keep tracking to get personalized recommendations.")
+        else:
+            st.info("Upload transactions to get personalized money-saving tips!")
+    
+    # TAB 3: Savings Goals
+    with tab3:
+        st.markdown("### 🎯 Savings Goals")
+        
+        # Initialize goals in session state
+        if 'savings_goals' not in st.session_state:
+            st.session_state.savings_goals = []
+        
+        # Add new goal
+        with st.expander("➕ Add New Savings Goal", expanded=len(st.session_state.savings_goals) == 0):
+            with st.form("new_goal"):
+                goal_name = st.text_input("Goal Name", placeholder="e.g., Emergency Fund, New Car, Vacation")
+                col1, col2 = st.columns(2)
+                with col1:
+                    target_amount = st.number_input("Target Amount ($)", min_value=0, value=1000, step=100)
+                with col2:
+                    current_amount = st.number_input("Current Savings ($)", min_value=0, value=0, step=100)
+                
+                target_date = st.date_input("Target Date", value=datetime.now() + timedelta(days=365))
+                
+                if st.form_submit_button("💾 Create Goal", use_container_width=True):
+                    st.session_state.savings_goals.append({
+                        'name': goal_name,
+                        'target': target_amount,
+                        'current': current_amount,
+                        'date': target_date.strftime("%Y-%m-%d"),
+                        'created': datetime.now().strftime("%Y-%m-%d")
+                    })
+                    st.success(f"✅ Goal '{goal_name}' created!")
+                    st.rerun()
+        
+        # Display goals
+        if st.session_state.savings_goals:
+            for idx, goal in enumerate(st.session_state.savings_goals):
+                progress = (goal['current'] / goal['target']) * 100 if goal['target'] > 0 else 0
+                remaining = goal['target'] - goal['current']
+                
+                days_left = (datetime.strptime(goal['date'], "%Y-%m-%d") - datetime.now()).days
+                monthly_needed = remaining / (days_left / 30) if days_left > 0 else 0
+                
+                st.markdown(f"""
+                <div class="wizard-step">
+                    <h4>🎯 {goal['name']}</h4>
+                    <p><b>Target:</b> ${goal['target']:,.0f} by {goal['date']}</p>
+                    <p><b>Current:</b> ${goal['current']:,.0f} ({progress:.0f}% complete)</p>
+                    <p><b>Remaining:</b> ${remaining:,.0f}</p>
+                    {f"<p><b>Monthly Needed:</b> ${monthly_needed:,.0f}/month ({days_left} days left)</p>" if days_left > 0 else "<p><b>Status:</b> Goal date passed!</p>"}
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Progress bar
+                st.progress(min(progress / 100, 1.0))
+                
+                # Update goal
+                col1, col2, col3 = st.columns([2, 1, 1])
+                with col1:
+                    new_amount = st.number_input(f"Update savings", min_value=0, value=int(goal['current']), step=50, key=f"update_{idx}")
+                with col2:
+                    if st.button("💾 Update", key=f"save_{idx}"):
+                        st.session_state.savings_goals[idx]['current'] = new_amount
+                        st.success("Updated!")
+                        st.rerun()
+                with col3:
+                    if st.button("🗑️ Delete", key=f"del_{idx}"):
+                        st.session_state.savings_goals.pop(idx)
+                        st.rerun()
+                
+                st.divider()
+        else:
+            st.info("💡 Set a savings goal to track your progress!")
+    
+    # TAB 4: Future Purchase Planner
+    with tab4:
+        st.markdown("### 🔮 Future Purchase Simulator")
+        st.markdown("*Plan major purchases and see how they'll impact your budget*")
+        
+        with st.form("future_purchase"):
+            st.markdown("#### What are you planning to buy?")
+            
+            purchase_name = st.text_input("Purchase Description", placeholder="e.g., New Car, Home Renovation, Dream Vacation")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                total_cost = st.number_input("Total Cost ($)", min_value=0, value=5000, step=100)
+                down_payment = st.number_input("Down Payment ($)", min_value=0, value=0, step=100)
+            
+            with col2:
+                purchase_month = st.selectbox("Purchase Month", 
+                    ["This Month", "Next Month", "2 Months", "3 Months", "4 Months", "5 Months", "6 Months"])
+                finance_months = st.number_input("Finance Over (months)", min_value=0, max_value=60, value=0, step=1)
+            
+            if st.form_submit_button("📊 Analyze Impact", use_container_width=True):
+                # Calculate impact
+                remaining_cost = total_cost - down_payment
+                monthly_payment = remaining_cost / finance_months if finance_months > 0 else remaining_cost
+                
+                st.markdown("---")
+                st.markdown("### 📊 Financial Impact Analysis")
+                
+                # Summary
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total Cost", f"${total_cost:,.0f}")
+                with col2:
+                    st.metric("Down Payment", f"${down_payment:,.0f}")
+                with col3:
+                    st.metric("Monthly Payment", f"${monthly_payment:,.0f}")
+                
+                # Affordability check
+                current_savings_capacity = total_income - total_budgeted
+                
+                if down_payment > net_savings:
+                    st.markdown(f"""
+                    <div class="alert-danger">
+                        <b>⚠️ Down Payment Alert:</b> You need ${down_payment:,.0f} but only have ${net_savings:,.0f} saved.
+                        <br><b>Shortfall:</b> ${down_payment - net_savings:,.0f}
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div class="alert-success">
+                        <b>✅ Down Payment:</b> You have enough saved! (${net_savings:,.0f} available)
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                if monthly_payment > current_savings_capacity:
+                    st.markdown(f"""
+                    <div class="alert-danger">
+                        <b>⚠️ Monthly Budget Impact:</b> This payment (${monthly_payment:,.0f}/month) exceeds your available budget (${current_savings_capacity:,.0f}/month)
+                        <br><b>Monthly Shortfall:</b> ${monthly_payment - current_savings_capacity:,.0f}
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Recommendations
+                    st.markdown("#### 💡 Recommendations to Make This Work:")
+                    st.markdown(f"""
+                    <div class="wizard-step">
+                        <ol>
+                            <li><b>Increase down payment</b> to ${down_payment + (monthly_payment - current_savings_capacity) * finance_months:,.0f} (reduces monthly to ${current_savings_capacity:,.0f})</li>
+                            <li><b>Extend financing</b> to {int((remaining_cost / current_savings_capacity)):} months (makes payment affordable)</li>
+                            <li><b>Reduce spending</b> by ${monthly_payment - current_savings_capacity:,.0f}/month in other categories</li>
+                            <li><b>Wait {int((down_payment - net_savings) / current_savings_capacity) + 1} months</b> to save more down payment</li>
+                        </ol>
+                    </div>
+                    """, unsafe_allow_html=True)
+                elif monthly_payment > 0:
+                    st.markdown(f"""
+                    <div class="alert-success">
+                        <b>✅ Monthly Payment:</b> Affordable! You have ${current_savings_capacity:,.0f}/month available, payment is ${monthly_payment:,.0f}/month
+                        <br><b>Buffer:</b> ${current_savings_capacity - monthly_payment:,.0f}/month remaining
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    if down_payment <= net_savings:
+                        st.markdown(f"""
+                        <div class="alert-success">
+                            <b>🎉 You can afford this purchase!</b> Pay in full with savings.
+                        </div>
+                        """, unsafe_allow_html=True)
+    
+    # TAB 5: Upload More Statements
+    with tab5:
+        st.markdown("### 📤 Upload Additional Statements")
+        
+        account_name = st.text_input("Account Name", placeholder="e.g., Chase Sapphire")
+        uploaded_file = st.file_uploader("Upload Statement", type=['pdf', 'png', 'jpg', 'jpeg'])
+        
+        if uploaded_file and account_name:
+            if st.button("🤖 Analyze & Add Transactions", type="primary"):
                 try:
-                    with st.spinner("🔍 Analyzing..."):
-                        result = analyze_with_mindee(uploaded_file.getvalue(), uploaded_file.name, mindee_api_key, BANK_STATEMENT_MODEL_ID)
+                    with st.spinner("🔍 Processing..."):
+                        result = analyze_with_mindee(uploaded_file.getvalue(), uploaded_file.name)
                         
-                        # Extract
                         inference = result.get('inference', {})
-                        result_data = inference.get('result', {})
-                        fields = result_data.get('fields', {})
-                        line_items_obj = fields.get('line_items', {})
-                        line_items_array = line_items_obj.get('items', [])
+                        line_items = inference.get('result', {}).get('fields', {}).get('line_items', {}).get('items', [])
                         
                         parsed = []
-                        
-                        for item in line_items_array:
+                        for item in line_items:
                             if isinstance(item, dict):
-                                item_fields = item.get('fields', {})
-                                desc = item_fields.get('description', {}).get('value', 'Unknown')
-                                amount = item_fields.get('total_price', {}).get('value', 0.0)
+                                fields = item.get('fields', {})
+                                desc = fields.get('description', {}).get('value', 'Unknown')
+                                amount = fields.get('total_price', {}).get('value', 0.0)
                                 
                                 if not desc or amount is None:
                                     continue
                                 
                                 category = categorize_transaction(desc)
-                                
-                                # Skip payments
                                 if category == 'PAYMENT_EXCLUDE':
                                     continue
-                                
-                                trans_type = "Expense"
                                 
                                 parsed.append({
                                     'description': desc,
                                     'amount': abs(amount),
-                                    'category': category,
-                                    'type': trans_type
+                                    'category': category
                                 })
                         
                         st.success(f"✅ Found {len(parsed)} transactions!")
@@ -643,33 +1098,22 @@ with tab3:
                             st.dataframe(df_preview.head(20), use_container_width=True, hide_index=True)
                             
                             if st.button(f"💾 Add All {len(parsed)} Transactions", type="primary"):
-                                saved_count = 0
                                 for trans in parsed:
                                     transaction = {
                                         "Date": datetime.now().strftime("%Y-%m-%d"),
                                         "Vendor": trans['description'],
                                         "Amount": trans['amount'],
                                         "Category": trans['category'],
-                                        "Type": trans['type'],
-                                        "Notes": f"Auto-imported from {card_name}",
-                                        "Card": card_name
+                                        "Type": "Expense",
+                                        "Notes": f"From {account_name}",
+                                        "Card": account_name
                                     }
-                                    if save_transaction(user_id, transaction):
-                                        saved_count += 1
+                                    save_transaction(user_id, transaction)
                                 
-                                st.success(f"🎉 Added {saved_count} transactions!")
+                                st.success("🎉 Added!")
                                 st.balloons()
                                 time.sleep(2)
                                 st.rerun()
                 
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
-
-# Footer
-st.divider()
-st.markdown(f"""
-<div style='text-align: center; color: #FFB84D;'>
-    <p style='font-weight: 700; font-size: 1.1rem;'>💼 <b>D.E.V.I.N</b> - Daily Expense Verification Income Network</p>
-    <p style='font-size: 0.9em; color: #95a5a6;'>{current_user} | {len(transactions)} transactions | 🤖 Powered by Mindee AI</p>
-</div>
-""", unsafe_allow_html=True)
