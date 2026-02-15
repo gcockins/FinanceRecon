@@ -11,35 +11,46 @@ from io import BytesIO
 from collections import defaultdict
 import time
 
+# Try to import Supabase
+try:
+    from supabase import create_client, Client
+    SUPABASE_AVAILABLE = True
+except ImportError:
+    SUPABASE_AVAILABLE = False
+
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="D.E.V.I.N - Finance Tracker", layout="wide", page_icon="👍")
 
 # Custom CSS
 st.markdown("""
 <style>
-    /* Main theme - matching logo colors */
+    /* Main theme - matching logo's light blue background */
     .stApp { 
-        background: linear-gradient(135deg, #1a2332 0%, #2c3e50 100%);
-        color: #E8F4F8; 
+        background: linear-gradient(135deg, #C8DCE8 0%, #E8F4F8 100%);
+        color: #1a2332; 
     }
     
-    /* Headers - Navy blue with gold accent */
+    /* Headers - Navy blue matching suit */
     h1 {
-        background: linear-gradient(90deg, #FFB84D 0%, #F4A460 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: #2C3E50;
         font-weight: 800;
     }
     
     h2, h3 { 
-        color: #FFB84D;
+        color: #1a2332;
+        font-weight: 700;
     }
     
-    /* Metrics */
+    /* Metrics - Gold matching tie */
     [data-testid="stMetricValue"] { 
         font-size: 2rem; 
         font-weight: 700;
         color: #FFB84D;
+    }
+    
+    [data-testid="stMetricLabel"] {
+        color: #2C3E50;
+        font-weight: 600;
     }
     
     /* Buttons - Gold gradient matching tie */
@@ -51,7 +62,7 @@ st.markdown("""
         padding: 10px 20px;
         font-weight: 700;
         transition: all 0.3s;
-        box-shadow: 0 4px 6px rgba(255, 184, 77, 0.3);
+        box-shadow: 0 4px 6px rgba(44, 62, 80, 0.2);
     }
     
     .stButton>button:hover {
@@ -60,14 +71,14 @@ st.markdown("""
         background: linear-gradient(90deg, #F4A460 0%, #FFB84D 100%);
     }
     
-    /* Login box */
+    /* Login box - Professional card on light background */
     .login-box {
         max-width: 500px;
         margin: 50px auto;
         padding: 40px;
-        background: linear-gradient(145deg, #2c3e50 0%, #34495e 100%);
+        background: white;
         border-radius: 20px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 10px 40px rgba(44, 62, 80, 0.15);
         border: 2px solid rgba(255, 184, 77, 0.3);
     }
     
@@ -76,16 +87,24 @@ st.markdown("""
         background: linear-gradient(90deg, #FFB84D 0%, #F4A460 100%);
     }
     
-    /* Sidebar */
+    /* Sidebar - Navy blue matching suit */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #2c3e50 0%, #1a2332 100%);
+        background: linear-gradient(180deg, #2C3E50 0%, #34495e 100%);
+        color: white;
     }
     
-    /* Input fields */
+    [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] label {
+        color: white !important;
+    }
+    
+    /* Input fields - Light with navy border */
     .stTextInput input, .stNumberInput input {
-        background-color: #34495e;
-        border: 1px solid #FFB84D;
-        color: #E8F4F8;
+        background-color: white;
+        border: 2px solid #2C3E50;
+        color: #1a2332;
     }
     
     /* Sliders */
@@ -93,24 +112,77 @@ st.markdown("""
         background-color: #FFB84D;
     }
     
-    /* Tabs */
+    /* Tabs - Professional look */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
+        background-color: transparent;
     }
     
     .stTabs [data-baseweb="tab"] {
-        background-color: #34495e;
+        background-color: white;
         border-radius: 10px 10px 0 0;
-        color: #E8F4F8;
+        color: #2C3E50;
         font-weight: 600;
+        border: 2px solid #E8F4F8;
     }
     
     .stTabs [aria-selected="true"] {
         background: linear-gradient(90deg, #FFB84D 0%, #F4A460 100%);
         color: #1a2332;
+        border-color: #FFB84D;
+    }
+    
+    /* Cards/Containers */
+    .element-container {
+        background-color: transparent;
+    }
+    
+    /* Dataframes */
+    .stDataFrame {
+        background-color: white;
+        border-radius: 10px;
+    }
+    
+    /* Warning/Info boxes */
+    .stAlert {
+        background-color: white;
+        border-left: 4px solid #FFB84D;
+        color: #1a2332;
+    }
+    
+    /* Expanders */
+    .streamlit-expanderHeader {
+        background-color: rgba(255, 184, 77, 0.1);
+        border-radius: 10px;
+        color: #2C3E50;
+        font-weight: 600;
     }
 </style>
 """, unsafe_allow_html=True)
+
+# --- SUPABASE SETUP ---
+@st.cache_resource
+def init_supabase():
+    """Initialize Supabase client with fallback"""
+    if not SUPABASE_AVAILABLE:
+        return None
+    
+    try:
+        supabase_url = st.secrets["supabase"]["url"]
+        supabase_key = st.secrets["supabase"]["key"]
+        client = create_client(supabase_url, supabase_key)
+        return client
+    except:
+        return None
+
+supabase = init_supabase()
+USE_DATABASE = supabase is not None
+
+# Show connection status in sidebar
+if USE_DATABASE:
+    st.sidebar.success("🗄️ Database Connected")
+else:
+    st.sidebar.warning("⚠️ Demo Mode (No Database)")
 
 def render_devin_logo(size="large"):
     """Render D.E.V.I.N logo - full on login, small on dashboard"""
@@ -161,6 +233,87 @@ except:
     mindee_api_key = ""
 
 BANK_STATEMENT_MODEL_ID = "77d71fe3-2547-482e-94b3-a3a6c3d97028"
+
+# --- DATABASE FUNCTIONS (Hybrid Mode) ---
+def get_or_create_user(username):
+    """Get/create user - works with or without database"""
+    if USE_DATABASE:
+        try:
+            result = supabase.table('users').select('id').eq('username', username).execute()
+            if result.data:
+                return result.data[0]['id']
+            else:
+                result = supabase.table('users').insert({'username': username}).execute()
+                return result.data[0]['id']
+        except:
+            pass
+    return username  # Fallback to username as ID
+
+def load_user_transactions(user_id):
+    """Load transactions - database or session"""
+    if USE_DATABASE:
+        try:
+            result = supabase.table('transactions').select('*').eq('user_id', user_id).order('date', desc=True).execute()
+            if result.data:
+                return [{'Date': t['date'], 'Vendor': t['vendor'], 'Amount': float(t['amount']), 
+                        'Category': t['category'], 'Type': t['type'], 'Notes': t['notes'], 
+                        'Card': t.get('card_name', '')} for t in result.data]
+        except:
+            pass
+    return st.session_state.all_user_data.get(user_id, {}).get('transactions', [])
+
+def save_transaction(user_id, transaction):
+    """Save transaction - database or session"""
+    if USE_DATABASE:
+        try:
+            data = {
+                'user_id': user_id,
+                'date': transaction['Date'],
+                'vendor': transaction['Vendor'],
+                'amount': float(transaction['Amount']),
+                'category': transaction['Category'],
+                'type': transaction['Type'],
+                'notes': transaction.get('Notes', ''),
+                'card_name': transaction.get('Card', '')
+            }
+            supabase.table('transactions').insert(data).execute()
+            return True
+        except:
+            pass
+    
+    # Fallback to session
+    if user_id not in st.session_state.all_user_data:
+        st.session_state.all_user_data[user_id] = {'transactions': [], 'budget': {}}
+    st.session_state.all_user_data[user_id]['transactions'].append(transaction)
+    return True
+
+def load_user_budget(user_id):
+    """Load budget - database or session"""
+    if USE_DATABASE:
+        try:
+            result = supabase.table('budgets').select('*').eq('user_id', user_id).execute()
+            if result.data:
+                return {item['category']: float(item['amount']) for item in result.data}
+        except:
+            pass
+    return st.session_state.all_user_data.get(user_id, {}).get('budget', {})
+
+def save_user_budget(user_id, budget_dict):
+    """Save budget - database or session"""
+    if USE_DATABASE:
+        try:
+            supabase.table('budgets').delete().eq('user_id', user_id).execute()
+            data = [{'user_id': user_id, 'category': cat, 'amount': float(amt)} for cat, amt in budget_dict.items()]
+            supabase.table('budgets').insert(data).execute()
+            return True
+        except:
+            pass
+    
+    # Fallback
+    if user_id not in st.session_state.all_user_data:
+        st.session_state.all_user_data[user_id] = {'transactions': [], 'budget': {}}
+    st.session_state.all_user_data[user_id]['budget'] = budget_dict
+    return True
 
 # --- MINDEE API ---
 def analyze_with_mindee(image_bytes, filename, api_key, model_id):
@@ -243,6 +396,8 @@ if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 if 'current_user' not in st.session_state:
     st.session_state.current_user = None
+if 'user_id' not in st.session_state:
+    st.session_state.user_id = None
 if 'all_user_data' not in st.session_state:
     st.session_state.all_user_data = {}
 
@@ -272,8 +427,9 @@ def login_page():
             else:
                 st.session_state.authenticated = True
                 st.session_state.current_user = username
+                st.session_state.user_id = get_or_create_user(username)
                 
-                # Create user data if doesn't exist
+                # Create user data if doesn't exist (for fallback mode)
                 if username not in st.session_state.all_user_data:
                     st.session_state.all_user_data[username] = {
                         'transactions': [],
@@ -292,7 +448,12 @@ if not st.session_state.authenticated:
 
 # --- MAIN APP ---
 current_user = st.session_state.current_user
-user_data = st.session_state.all_user_data[current_user]
+user_id = st.session_state.user_id
+user_data = st.session_state.all_user_data.get(current_user, {'transactions': [], 'budget': {}})
+
+# Load from database if available
+transactions = load_user_transactions(user_id)
+saved_budget = load_user_budget(user_id)
 
 # Sidebar
 with st.sidebar:
@@ -317,7 +478,6 @@ with st.sidebar:
     st.markdown("### 📊 Budget")
     
     categories = {}
-    saved_budget = user_data.get('budget', {})
     
     with st.expander("🏠 Housing"):
         categories["Rent/Mortgage"] = st.slider("Rent/Mortgage", 0, 5000, saved_budget.get("Rent/Mortgage", 0), 50)
@@ -344,8 +504,10 @@ with st.sidebar:
     
     # Save budget
     if st.button("💾 Save Budget", use_container_width=True):
-        user_data['budget'] = categories
-        st.success("✅ Budget saved!")
+        if save_user_budget(user_id, categories):
+            st.success("✅ Budget saved!")
+        else:
+            st.error("Failed to save budget")
     
     total_budgeted = sum(categories.values())
     remaining = total_income - total_budgeted
@@ -370,10 +532,13 @@ with st.sidebar:
 render_devin_logo("small")
 st.markdown(f"# {current_user}'s Financial Dashboard")
 st.markdown("*Daily Expense Verification Income Network*")
-st.warning("⚠️ Demo Mode: Data is temporary and will be lost when you close the browser")
+
+if not USE_DATABASE:
+    st.warning("⚠️ Demo Mode: Data is temporary and will be lost when you close the browser")
+else:
+    st.info("✅ Connected to Database: Your data is saved permanently!")
 
 # Metrics
-transactions = user_data.get('transactions', [])
 total_spent = sum([t['Amount'] for t in transactions if t['Type'] == 'Expense'])
 total_earned = sum([t['Amount'] for t in transactions if t['Type'] == 'Income'])
 net_savings = total_earned - total_spent
@@ -478,6 +643,7 @@ with tab3:
                             st.dataframe(df_preview.head(20), use_container_width=True, hide_index=True)
                             
                             if st.button(f"💾 Add All {len(parsed)} Transactions", type="primary"):
+                                saved_count = 0
                                 for trans in parsed:
                                     transaction = {
                                         "Date": datetime.now().strftime("%Y-%m-%d"),
@@ -488,9 +654,10 @@ with tab3:
                                         "Notes": f"Auto-imported from {card_name}",
                                         "Card": card_name
                                     }
-                                    user_data['transactions'].append(transaction)
+                                    if save_transaction(user_id, transaction):
+                                        saved_count += 1
                                 
-                                st.success(f"🎉 Added {len(parsed)} transactions!")
+                                st.success(f"🎉 Added {saved_count} transactions!")
                                 st.balloons()
                                 time.sleep(2)
                                 st.rerun()
