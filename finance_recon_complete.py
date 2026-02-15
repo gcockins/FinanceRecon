@@ -17,51 +17,134 @@ st.set_page_config(page_title="D.E.V.I.N - Finance Tracker", layout="wide", page
 # Custom CSS
 st.markdown("""
 <style>
+    /* Main theme - matching logo colors */
     .stApp { 
-        background: linear-gradient(135deg, #0E1117 0%, #1a1f2e 100%);
-        color: #E0E0E0; 
+        background: linear-gradient(135deg, #1a2332 0%, #2c3e50 100%);
+        color: #E8F4F8; 
     }
+    
+    /* Headers - Navy blue with gold accent */
     h1 {
-        background: linear-gradient(90deg, #00D9FF 0%, #7B2CBF 100%);
+        background: linear-gradient(90deg, #FFB84D 0%, #F4A460 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         font-weight: 800;
     }
-    h2, h3 { color: #00D9FF; }
-    [data-testid="stMetricValue"] { font-size: 2rem; font-weight: 700; }
+    
+    h2, h3 { 
+        color: #FFB84D;
+    }
+    
+    /* Metrics */
+    [data-testid="stMetricValue"] { 
+        font-size: 2rem; 
+        font-weight: 700;
+        color: #FFB84D;
+    }
+    
+    /* Buttons - Gold gradient matching tie */
     .stButton>button {
-        background: linear-gradient(90deg, #00D9FF 0%, #7B2CBF 100%);
-        color: white;
+        background: linear-gradient(90deg, #FFB84D 0%, #F4A460 100%);
+        color: #1a2332;
         border: none;
         border-radius: 10px;
         padding: 10px 20px;
-        font-weight: 600;
+        font-weight: 700;
         transition: all 0.3s;
+        box-shadow: 0 4px 6px rgba(255, 184, 77, 0.3);
     }
+    
     .stButton>button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(0, 217, 255, 0.4);
+        box-shadow: 0 6px 20px rgba(255, 184, 77, 0.5);
+        background: linear-gradient(90deg, #F4A460 0%, #FFB84D 100%);
     }
+    
+    /* Login box */
     .login-box {
-        max-width: 450px;
-        margin: 80px auto;
+        max-width: 500px;
+        margin: 50px auto;
         padding: 40px;
-        background: linear-gradient(145deg, #1e2530 0%, #252d3d 100%);
+        background: linear-gradient(145deg, #2c3e50 0%, #34495e 100%);
         border-radius: 20px;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        border: 2px solid rgba(255, 184, 77, 0.3);
+    }
+    
+    /* Progress bars - Gold */
+    .stProgress > div > div > div > div {
+        background: linear-gradient(90deg, #FFB84D 0%, #F4A460 100%);
+    }
+    
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #2c3e50 0%, #1a2332 100%);
+    }
+    
+    /* Input fields */
+    .stTextInput input, .stNumberInput input {
+        background-color: #34495e;
+        border: 1px solid #FFB84D;
+        color: #E8F4F8;
+    }
+    
+    /* Sliders */
+    .stSlider > div > div > div > div {
+        background-color: #FFB84D;
+    }
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background-color: #34495e;
+        border-radius: 10px 10px 0 0;
+        color: #E8F4F8;
+        font-weight: 600;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(90deg, #FFB84D 0%, #F4A460 100%);
+        color: #1a2332;
     }
 </style>
 """, unsafe_allow_html=True)
 
-def render_devin_logo():
-    """Render D.E.V.I.N logo"""
-    st.markdown("""
-    <div style="text-align: center; margin-bottom: 30px;">
-        <div style="font-size: 4rem;">👍</div>
-        <h1 style="font-size: 3.5rem; font-weight: 900; background: linear-gradient(90deg, #00D9FF 0%, #7B2CBF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 0.5rem; margin: 10px 0 5px 0;">D.E.V.I.N</h1>
-        <p style="font-size: 0.95rem; color: #888; font-weight: 500; letter-spacing: 0.1rem; margin: 0;">DAILY EXPENSE VERIFICATION INCOME NETWORK</p>
-    </div>
-    """, unsafe_allow_html=True)
+def render_devin_logo(size="large"):
+    """Render D.E.V.I.N logo - full on login, small on dashboard"""
+    import base64
+    
+    # Read the logo image
+    try:
+        with open("/mnt/user-data/uploads/Devin.png", "rb") as f:
+            logo_data = base64.b64encode(f.read()).decode()
+    except:
+        # Fallback if image not found
+        st.markdown("""
+        <div style="text-align: center; margin-bottom: 30px;">
+            <div style="font-size: 4rem;">💼</div>
+            <h1 style="font-size: 3.5rem; font-weight: 900; background: linear-gradient(90deg, #FFB84D 0%, #F4A460 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 0.5rem; margin: 10px 0 5px 0;">D.E.V.I.N</h1>
+            <p style="font-size: 0.95rem; color: #FFB84D; font-weight: 600; letter-spacing: 0.1rem; margin: 0;">DAILY EXPENSE VERIFICATION INCOME NETWORK</p>
+        </div>
+        """, unsafe_allow_html=True)
+        return
+    
+    if size == "large":
+        # Full logo for login page
+        st.markdown(f"""
+        <div style="text-align: center; margin-bottom: 30px;">
+            <img src="data:image/png;base64,{logo_data}" style="width: 100%; max-width: 400px; height: auto; margin: 0 auto; display: block;">
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        # Small logo for dashboard
+        st.markdown(f"""
+        <div style="text-align: center; margin-bottom: 20px;">
+            <img src="data:image/png;base64,{logo_data}" style="width: 150px; height: auto; margin: 0 auto; display: block; border-radius: 10px;">
+        </div>
+        """, unsafe_allow_html=True)
 
 # --- MINDEE CONFIG ---
 try:
@@ -276,7 +359,8 @@ with st.sidebar:
         st.success(f"Left: ${remaining:,.0f}")
 
 # Main content
-st.markdown(f"# 👍 D.E.V.I.N - {current_user}'s Dashboard")
+render_devin_logo("small")
+st.markdown(f"# {current_user}'s Financial Dashboard")
 st.markdown("*Daily Expense Verification Income Network*")
 st.warning("⚠️ Demo Mode: Data is temporary and will be lost when you close the browser")
 
@@ -409,8 +493,8 @@ with tab3:
 # Footer
 st.divider()
 st.markdown(f"""
-<div style='text-align: center; color: #666;'>
-    <p>👍 <b>D.E.V.I.N</b> - Daily Expense Verification Income Network</p>
-    <p style='font-size: 0.9em;'>{current_user} | {len(transactions)} transactions | 🤖 Powered by Mindee AI</p>
+<div style='text-align: center; color: #FFB84D;'>
+    <p style='font-weight: 700; font-size: 1.1rem;'>💼 <b>D.E.V.I.N</b> - Daily Expense Verification Income Network</p>
+    <p style='font-size: 0.9em; color: #95a5a6;'>{current_user} | {len(transactions)} transactions | 🤖 Powered by Mindee AI</p>
 </div>
 """, unsafe_allow_html=True)
