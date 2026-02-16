@@ -11,6 +11,7 @@ from io import BytesIO
 from collections import defaultdict
 import time
 import calendar
+from PyPDF2 import PdfReader, PdfWriter
 
 # Try to import Supabase
 try:
@@ -357,6 +358,98 @@ def categorize_transaction(description):
     else:
         return "Other"
 
+# --- PDF PAGE DETECTION ---
+def find_transaction_pages(pdf_bytes):
+    """
+    Scan PDF to find pages with transactions, skip disclosure/info pages.
+    Returns: list of page numbers (0-indexed)
+    """
+    try:
+        pdf = PdfReader(BytesIO(pdf_bytes))
+        transaction_pages = []
+        
+        # Keywords that indicate transaction pages
+        transaction_keywords = [
+            "PURCHASES",
+            "TRANSACTIONS", 
+            "PAYMENTS AND OTHER CREDITS",
+            "FEES CHARGED",
+            "TOTAL PURCHASES",
+            "BEGINNING BALANCE",
+            "ENDING BALANCE",
+            "ACCOUNT ACTIVITY"
+        ]
+        
+        # Keywords that indicate pages to skip
+        skip_keywords = [
+            "IMPORTANT DISCLOSURES",
+            "PRIVACY NOTICE",
+            "QUESTIONS?",
+            "CUSTOMER SERVICE",
+            "HOW TO CONTACT US",
+            "TERMS AND CONDITIONS",
+            "NOTICE TO CALIFORNIA RESIDENTS",
+            "INTEREST CHARGES",
+            "YOUR RIGHTS"
+        ]
+        
+        st.info(f"📄 Scanning {len(pdf.pages)} pages for transactions...")
+        
+        for page_num, page in enumerate(pdf.pages):
+            try:
+                text = page.extract_text().upper()
+                
+                # Skip if it's a disclosure/info page
+                skip_count = sum(1 for keyword in skip_keywords if keyword in text)
+                transaction_count = sum(1 for keyword in transaction_keywords if keyword in text)
+                
+                # Keep page if it has transaction keywords and minimal skip keywords
+                if transaction_count > 0 and skip_count <= 1:
+                    transaction_pages.append(page_num)
+                    st.success(f"✅ Page {page_num + 1}: Found transactions ({transaction_count} keywords)")
+                else:
+                    st.info(f"⏭️ Page {page_num + 1}: Skipping (likely disclosure/info page)")
+                    
+            except Exception as e:
+                # If we can't read the page, include it to be safe
+                st.warning(f"⚠️ Page {page_num + 1}: Could not scan, including anyway")
+                transaction_pages.append(page_num)
+        
+        # If we didn't find any pages, return all pages (safe fallback)
+        if not transaction_pages:
+            st.warning("⚠️ No transaction pages detected - processing all pages")
+            return list(range(len(pdf.pages)))
+        
+        return transaction_pages
+        
+    except Exception as e:
+        st.error(f"❌ PDF scan error: {str(e)}")
+        # Fallback: return None to process full PDF
+        return None
+
+def extract_pages(pdf_bytes, page_numbers):
+    """
+    Extract only specific pages into a new PDF
+    Returns: bytes of the filtered PDF
+    """
+    try:
+        reader = PdfReader(BytesIO(pdf_bytes))
+        writer = PdfWriter()
+        
+        for page_num in page_numbers:
+            if page_num < len(reader.pages):
+                writer.add_page(reader.pages[page_num])
+        
+        output = BytesIO()
+        writer.write(output)
+        output.seek(0)
+        return output.getvalue()
+        
+    except Exception as e:
+        st.error(f"❌ Page extraction error: {str(e)}")
+        # Fallback: return original PDF
+        return pdf_bytes
+
 # --- SMART RECOMMENDATIONS ---
 def generate_recommendations(transactions, budget):
     """Generate money-saving recommendations based on spending patterns"""
@@ -465,18 +558,87 @@ def check_budget_alerts(transactions, budget):
 
 # --- LOGIN PAGE ---
 def login_page():
-    st.markdown("<div style='max-width: 500px; margin: 50px auto; padding: 40px; background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(44, 62, 80, 0.15);'>", unsafe_allow_html=True)
+    # Add custom CSS for login page
+    st.markdown("""
+    <style>
+    .login-container {
+        max-width: 450px;
+        margin: 0 auto;
+        padding-top: 60px;
+    }
+    .login-card {
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 10px 40px rgba(44, 62, 80, 0.15);
+        border: 1px solid #E8EDF2;
+    }
+    .login-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    .login-logo {
+        width: 200px;
+        height: auto;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(255, 184, 77, 0.25);
+        margin-bottom: 20px;
+    }
+    .login-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #2C3E50;
+        margin: 0;
+        margin-bottom: 8px;
+    }
+    .login-subtitle {
+        font-size: 1rem;
+        color: #7F8C8D;
+        margin: 0;
+    }
+    /* Hide Streamlit branding on login page */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    </style>
+    """, unsafe_allow_html=True)
     
-    render_devin_logo("large")
-    st.markdown("### Welcome! Please login")
+    st.markdown('<div class="login-container">', unsafe_allow_html=True)
+    st.markdown('<div class="login-card">', unsafe_allow_html=True)
     
+    # Compact logo
+    st.markdown('<div class="login-header">', unsafe_allow_html=True)
+    
+    # Try to load logo
+    import base64
+    logo_paths = ["Devin.png", "devin_logo.png", "/mnt/user-data/uploads/Devin.png"]
+    logo_data = None
+    
+    for path in logo_paths:
+        try:
+            with open(path, "rb") as f:
+                logo_data = base64.b64encode(f.read()).decode()
+                break
+        except:
+            continue
+    
+    if logo_data:
+        st.markdown(f'<img src="data:image/png;base64,{logo_data}" class="login-logo">', unsafe_allow_html=True)
+    else:
+        st.markdown('<div style="font-size: 3rem; margin-bottom: 15px;">💼</div>', unsafe_allow_html=True)
+    
+    st.markdown('<h1 class="login-title">D.E.V.I.N</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="login-subtitle">Daily Expense Verification Income Network</p>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Login form
     with st.form("login_form"):
-        username = st.text_input("👤 Your Name", placeholder="Enter your name")
-        password = st.text_input("🔐 Access Code", type="password", placeholder="922626")
+        username = st.text_input("👤 Your Name", placeholder="Enter your name", label_visibility="collapsed")
+        password = st.text_input("🔐 Access Code", type="password", placeholder="Enter access code (922626)", label_visibility="collapsed")
         
         col1, col2 = st.columns(2)
         with col1:
-            login_button = st.form_submit_button("🔓 Login", use_container_width=True)
+            login_button = st.form_submit_button("🔓 Login", use_container_width=True, type="primary")
         with col2:
             new_user_button = st.form_submit_button("➕ New User", use_container_width=True)
         
@@ -495,9 +657,11 @@ def login_page():
                     st.session_state.onboarding_complete[username] = False
                 
                 st.success(f"✅ Welcome, {username}!")
+                time.sleep(0.5)
                 st.rerun()
     
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 if not st.session_state.authenticated:
     login_page()
@@ -677,7 +841,22 @@ if not st.session_state.onboarding_complete.get(current_user, False):
                 for account in accounts:
                     if account.get('file'):
                         try:
-                            result = analyze_with_mindee(account['file'].getvalue(), account['file'].name)
+                            # STEP 1: Detect transaction pages
+                            pdf_bytes = account['file'].getvalue()
+                            
+                            st.markdown(f"### 📄 Processing: {account['name']}")
+                            transaction_pages = find_transaction_pages(pdf_bytes)
+                            
+                            # STEP 2: Extract only transaction pages
+                            if transaction_pages:
+                                filtered_pdf = extract_pages(pdf_bytes, transaction_pages)
+                                st.success(f"✅ Extracted {len(transaction_pages)} pages with transactions")
+                            else:
+                                filtered_pdf = pdf_bytes
+                                st.info("📄 Processing full document")
+                            
+                            # STEP 3: Send to Mindee (now with fewer pages!)
+                            result = analyze_with_mindee(filtered_pdf, account['file'].name)
                             
                             # Extract transactions - Mindee response has 'fields' at top level
                             fields = result.get('fields', {})
@@ -1127,7 +1306,22 @@ else:
             if st.button("🤖 Analyze & Add Transactions", type="primary"):
                 try:
                     with st.spinner("🔍 Processing..."):
-                        result = analyze_with_mindee(uploaded_file.getvalue(), uploaded_file.name)
+                        # STEP 1: Detect transaction pages
+                        pdf_bytes = uploaded_file.getvalue()
+                        
+                        st.markdown(f"### 📄 Processing: {account_name}")
+                        transaction_pages = find_transaction_pages(pdf_bytes)
+                        
+                        # STEP 2: Extract only transaction pages
+                        if transaction_pages:
+                            filtered_pdf = extract_pages(pdf_bytes, transaction_pages)
+                            st.success(f"✅ Extracted {len(transaction_pages)} pages with transactions")
+                        else:
+                            filtered_pdf = pdf_bytes
+                            st.info("📄 Processing full document")
+                        
+                        # STEP 3: Send to Mindee (now with fewer pages!)
+                        result = analyze_with_mindee(filtered_pdf, uploaded_file.name)
                         
                         # Extract from top-level fields
                         fields = result.get('fields', {})
