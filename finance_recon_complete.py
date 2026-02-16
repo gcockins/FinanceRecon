@@ -624,9 +624,7 @@ if not st.session_state.onboarding_complete.get(current_user, False):
         with col3:
             pass  # Empty column for spacing
     
-    # STEP 7: Family Info (was Step 5)
-    elif current_step == 7:
-    # STEP 7: Family Info (was Step 5)
+        # STEP 7: Family Info (was Step 5)
     elif current_step == 7:
         st.markdown("## Step 3: Family Information 👨‍👩‍👧‍👦")
         
@@ -659,9 +657,7 @@ if not st.session_state.onboarding_complete.get(current_user, False):
                 st.session_state.onboarding_step = 8  # Changed from 6 to 8
                 st.rerun()
     
-    # STEP 8: Analysis (was Step 6)
-    elif current_step == 8:
-    # STEP 8: Analysis (was Step 6)
+        # STEP 8: Analysis (was Step 6)
     elif current_step == 8:
         requested_months = st.session_state.onboarding_data.get('requested_months', [])
         signup_date = st.session_state.onboarding_data.get('signup_date', datetime.now().strftime("%Y-%m-%d"))
