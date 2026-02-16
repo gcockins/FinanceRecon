@@ -26,7 +26,7 @@ st.set_page_config(page_title="D.E.V.I.N - Finance Advisor", layout="wide", page
 st.markdown("""
 <style>
     .stApp { 
-        background: linear-gradient(135deg, #C8DCE8 0%, #E8F4F8 100%);
+        background: #F8FAFB;
         color: #1a2332; 
     }
     h1 { color: #2C3E50; font-weight: 800; }
@@ -104,6 +104,33 @@ st.markdown("""
     [data-testid="stSidebar"] h3,
     [data-testid="stSidebar"] label {
         color: white !important;
+    }
+    
+    /* Chart containers - white background for clarity */
+    .js-plotly-plot, .plotly {
+        background: white !important;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    /* DataFrame styling */
+    .stDataFrame {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab"] {
+        background: white;
+        color: #2C3E50;
+        border-radius: 8px 8px 0 0;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(90deg, #FFB84D 0%, #F4A460 100%);
+        color: #1a2332 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -656,17 +683,19 @@ if not st.session_state.onboarding_complete.get(current_user, False):
                         try:
                             result = analyze_with_mindee(account['file'].getvalue(), account['file'].name)
                             
-                            # Extract transactions
-                            inference = result.get('inference', {})
-                            line_items = inference.get('result', {}).get('fields', {}).get('line_items', {}).get('items', [])
+                            # Extract transactions - Mindee response has 'fields' at top level
+                            fields = result.get('fields', {})
+                            line_items = fields.get('line_items', {}).get('items', [])
+                            
+                            st.info(f"🔍 Processing {account['name']}: Found {len(line_items)} line items")
                             
                             for item in line_items:
                                 if isinstance(item, dict):
-                                    fields = item.get('fields', {})
-                                    desc = fields.get('description', {}).get('value', 'Unknown')
-                                    amount = fields.get('total_price', {}).get('value', 0.0)
+                                    item_fields = item.get('fields', {})
+                                    desc = item_fields.get('description', {}).get('value', 'Unknown')
+                                    amount = item_fields.get('total_price', {}).get('value', 0.0)
                                     
-                                    if not desc or amount is None:
+                                    if not desc or amount is None or amount == 0:
                                         continue
                                     
                                     category = categorize_transaction(desc)
@@ -676,14 +705,14 @@ if not st.session_state.onboarding_complete.get(current_user, False):
                                     all_transactions.append({
                                         'Date': datetime.now().strftime("%Y-%m-%d"),
                                         'Vendor': desc,
-                                        'Amount': abs(amount),
+                                        'Amount': abs(float(amount)),
                                         'Category': category,
                                         'Type': 'Expense',
                                         'Notes': f"From {account['name']}",
                                         'Card': account['name']
                                     })
                         except Exception as e:
-                            st.warning(f"Could not process {account['name']}: {str(e)}")
+                            st.error(f"❌ Error processing {account['name']}: {str(e)}")
         
         # Show results
         st.success(f"✅ Analyzed {len(all_transactions)} transactions!")
@@ -865,7 +894,11 @@ else:
                     category_totals = expenses.groupby('Category')['Amount'].sum().reset_index()
                     fig = px.pie(category_totals, values='Amount', names='Category', 
                                 title='Spending by Category', hole=0.4)
-                    fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+                    fig.update_layout(
+                        plot_bgcolor='white', 
+                        paper_bgcolor='white',
+                        font=dict(color='#1a2332')
+                    )
                     st.plotly_chart(fig, use_container_width=True)
                 
                 with col2:
@@ -883,7 +916,13 @@ else:
                     fig2 = go.Figure()
                     fig2.add_trace(go.Bar(name='Budgeted', x=budget_df['Category'], y=budget_df['Budgeted'], marker_color='#FFB84D'))
                     fig2.add_trace(go.Bar(name='Actual', x=budget_df['Category'], y=budget_df['Actual'], marker_color='#2C3E50'))
-                    fig2.update_layout(title='Budget vs Actual', barmode='group', plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+                    fig2.update_layout(
+                        title='Budget vs Actual', 
+                        barmode='group', 
+                        plot_bgcolor='white', 
+                        paper_bgcolor='white',
+                        font=dict(color='#1a2332')
+                    )
                     st.plotly_chart(fig2, use_container_width=True)
                 
                 # Recent transactions
@@ -1094,17 +1133,18 @@ else:
                     with st.spinner("🔍 Processing..."):
                         result = analyze_with_mindee(uploaded_file.getvalue(), uploaded_file.name)
                         
-                        inference = result.get('inference', {})
-                        line_items = inference.get('result', {}).get('fields', {}).get('line_items', {}).get('items', [])
+                        # Extract from top-level fields
+                        fields = result.get('fields', {})
+                        line_items = fields.get('line_items', {}).get('items', [])
                         
                         parsed = []
                         for item in line_items:
                             if isinstance(item, dict):
-                                fields = item.get('fields', {})
-                                desc = fields.get('description', {}).get('value', 'Unknown')
-                                amount = fields.get('total_price', {}).get('value', 0.0)
+                                item_fields = item.get('fields', {})
+                                desc = item_fields.get('description', {}).get('value', 'Unknown')
+                                amount = item_fields.get('total_price', {}).get('value', 0.0)
                                 
-                                if not desc or amount is None:
+                                if not desc or amount is None or amount == 0:
                                     continue
                                 
                                 category = categorize_transaction(desc)
@@ -1113,7 +1153,7 @@ else:
                                 
                                 parsed.append({
                                     'description': desc,
-                                    'amount': abs(amount),
+                                    'amount': abs(float(amount)),
                                     'category': category
                                 })
                         
