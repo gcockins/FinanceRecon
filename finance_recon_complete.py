@@ -138,12 +138,39 @@ if 'user_id' not in st.session_state:
 if 'onboarding_complete' not in st.session_state:
     st.session_state.onboarding_complete = {}
 if 'onboarding_step' not in st.session_state:
-    st.session_state.onboarding_step = 1
+    st.session_state.onboarding_step = 4  # Start at Step 4
 if 'onboarding_data' not in st.session_state:
+    # Calculate which months to request
+    today = datetime.now()
+    
+    # If we're in the first 2 weeks of the month, assume current month data isn't available yet
+    if today.day <= 14:
+        # Ask for previous 3 complete months
+        months_to_request = []
+        for i in range(1, 4):  # 1, 2, 3 months ago
+            month_date = today - timedelta(days=today.day + 30*i)
+            months_to_request.append({
+                'date': month_date,
+                'name': month_date.strftime("%B %Y"),
+                'short_name': month_date.strftime("%b %Y")
+            })
+    else:
+        # Current month is mostly complete, include it
+        months_to_request = []
+        for i in range(0, 3):  # 0, 1, 2 months ago
+            month_date = today - timedelta(days=30*i)
+            months_to_request.append({
+                'date': month_date,
+                'name': month_date.strftime("%B %Y"),
+                'short_name': month_date.strftime("%b %Y")
+            })
+    
     st.session_state.onboarding_data = {
         'months_uploaded': {},
         'family_size': {'adults': 1, 'children': 0},
-        'all_transactions': []
+        'all_transactions': [],
+        'requested_months': months_to_request,
+        'signup_date': today.strftime("%Y-%m-%d")
     }
 if 'all_user_data' not in st.session_state:
     st.session_state.all_user_data = {}
@@ -462,55 +489,40 @@ if not st.session_state.onboarding_complete.get(current_user, False):
     # Progress bar
     total_steps = 6
     current_step = st.session_state.onboarding_step
-    progress = (current_step / total_steps) * 100
+    # Adjust progress to account for skipped steps
+    adjusted_progress = ((current_step - 3) / 3) * 100 if current_step >= 4 else 0
     
     st.markdown(f"""
     <div style="margin: 20px 0;">
         <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-            <span><b>Step {current_step} of {total_steps}</b></span>
-            <span>{progress:.0f}% Complete</span>
+            <span><b>Step {current_step - 3} of 3</b></span>
+            <span>{adjusted_progress:.0f}% Complete</span>
         </div>
         <div class="progress-bar">
-            <div class="progress-fill" style="width: {progress}%"></div>
+            <div class="progress-fill" style="width: {adjusted_progress}%"></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
     
     st.divider()
     
-    # STEP 1: Introduction
-    if current_step == 1:
-        st.markdown("## Step 1: Gather Your Documents 📄")
-        st.markdown("""
-        <div class="wizard-step">
-        <h3>📋 What You'll Need:</h3>
-        <p>To give you the most accurate financial picture, please gather:</p>
-        <ul>
-            <li>✅ <b>Bank statements</b> from the last 3 months</li>
-            <li>✅ <b>Credit card statements</b> from the last 3 months</li>
-            <li>✅ <b>Other accounts</b> (PayPal, Venmo, Cash App, etc.)</li>
-        </ul>
-        <p><i>💡 Tip: You can usually download these as PDFs from your bank's website</i></p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.info("📌 **Note:** You can skip ONE month if needed, but having all 3 months gives us the best insight into your spending patterns!")
-        
-        if st.button("✅ I have my documents ready - Let's begin!", type="primary", use_container_width=True):
-            st.session_state.onboarding_step = 2
-            st.rerun()
+    # Get requested months from onboarding data
+    requested_months = st.session_state.onboarding_data.get('requested_months', [])
     
-    # STEPS 2-4: Upload months
-    elif current_step in [2, 3, 4]:
-        month_index = current_step - 2  # 0, 1, 2
-        month_names = ["Most Recent Month", "2 Months Ago", "3 Months Ago"]
+    # STEPS 4-6 are now STEPS 1-3 (Upload months)
+    if current_step in [4, 5, 6]:
+        month_index = current_step - 4  # 0, 1, 2
+        month_info = requested_months[month_index] if month_index < len(requested_months) else {'name': 'Unknown Month', 'short_name': 'Unknown'}
         
-        st.markdown(f"## Step {current_step}: Upload {month_names[month_index]} 📤")
+        step_label = current_step - 3  # Display as Step 1, 2, 3
+        
+        st.markdown(f"## Step {step_label}: Upload {month_info['name']} 📤")
         
         st.markdown(f"""
         <div class="wizard-step">
-        <h3>Upload statements for {month_names[month_index]}</h3>
+        <h3>📅 Upload statements for {month_info['name']}</h3>
         <p>Add all accounts you used during this period</p>
+        <p><i>💡 This is one of your last 3 complete months of financial data</i></p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -563,28 +575,33 @@ if not st.session_state.onboarding_complete.get(current_user, False):
         col1, col2, col3 = st.columns([1, 2, 1])
         
         with col1:
-            if st.button("⬅️ Back"):
-                st.session_state.onboarding_step -= 1
-                st.rerun()
+            if current_step > 4:  # Only show back button after first month
+                if st.button("⬅️ Back"):
+                    st.session_state.onboarding_step -= 1
+                    st.rerun()
         
         with col2:
-            if current_step < 4:
-                skip_text = "⏭️ Skip this month" if num_accounts == 0 else "Next Month →"
+            if current_step < 6:  # Not the last month
+                skip_text = "⏭️ Skip this month" if num_accounts == 0 else f"Next: {requested_months[month_index + 1]['short_name']} →"
                 if st.button(skip_text, type="primary" if num_accounts > 0 else "secondary", use_container_width=True):
                     if num_accounts == 0:
                         st.warning("⚠️ Skipping this month will reduce accuracy of your budget analysis!")
                         time.sleep(1)
                     st.session_state.onboarding_step += 1
                     st.rerun()
+            else:  # Last month - go to family info
+                if st.button("Continue to Family Info →", type="primary", use_container_width=True, disabled=num_accounts == 0):
+                    st.session_state.onboarding_step = 7  # Changed from 5 to 7
+                    st.rerun()
         
         with col3:
-            if st.button("Continue →", type="primary", disabled=num_accounts == 0):
-                st.session_state.onboarding_step += 1
-                st.rerun()
+            pass  # Empty column for spacing
     
-    # STEP 5: Family Info
-    elif current_step == 5:
-        st.markdown("## Step 5: Family Information 👨‍👩‍👧‍👦")
+    # STEP 7: Family Info (was Step 5)
+    elif current_step == 7:
+    # STEP 7: Family Info (was Step 5)
+    elif current_step == 7:
+        st.markdown("## Step 3: Family Information 👨‍👩‍👧‍👦")
         
         st.markdown("""
         <div class="wizard-step">
@@ -608,16 +625,25 @@ if not st.session_state.onboarding_complete.get(current_user, False):
         col1, col2 = st.columns([1, 3])
         with col1:
             if st.button("⬅️ Back"):
-                st.session_state.onboarding_step -= 1
+                st.session_state.onboarding_step = 6
                 st.rerun()
         with col2:
             if st.button("Analyze My Finances →", type="primary", use_container_width=True):
-                st.session_state.onboarding_step = 6
+                st.session_state.onboarding_step = 8  # Changed from 6 to 8
                 st.rerun()
     
-    # STEP 6: Analysis
-    elif current_step == 6:
-        st.markdown("## Step 6: Analyzing Your Finances 🔍")
+    # STEP 8: Analysis (was Step 6)
+    elif current_step == 8:
+    # STEP 8: Analysis (was Step 6)
+    elif current_step == 8:
+        requested_months = st.session_state.onboarding_data.get('requested_months', [])
+        signup_date = st.session_state.onboarding_data.get('signup_date', datetime.now().strftime("%Y-%m-%d"))
+        
+        st.markdown("## Final Step: Analyzing Your Finances 🔍")
+        
+        # Show which months were analyzed
+        month_names = [m['name'] for m in requested_months]
+        st.info(f"📅 **Analyzing:** {', '.join(month_names)}")
         
         with st.spinner("🤖 Processing your statements with AI..."):
             all_transactions = []
