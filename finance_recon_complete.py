@@ -214,7 +214,7 @@ if 'user_id' not in st.session_state:
 if 'onboarding_complete' not in st.session_state:
     st.session_state.onboarding_complete = {}
 if 'onboarding_step' not in st.session_state:
-    st.session_state.onboarding_step = 4  # Start at Step 4
+    st.session_state.onboarding_step = 0  # Start at Step 0 (date picker)
 if 'onboarding_data' not in st.session_state:
     # Don't calculate months yet - will ask user for start date first
     st.session_state.onboarding_data = {
@@ -828,24 +828,25 @@ if not st.session_state.onboarding_complete.get(current_user, False):
     st.markdown("# 🎯 Welcome to D.E.V.I.N!")
     st.markdown("*Let's set up your financial profile in just a few minutes*")
     
-    # Get requested months
+    # Get current step and requested months
+    current_step = st.session_state.onboarding_step
     requested_months = st.session_state.onboarding_data.get('requested_months', [])
     
-    # STEP 0: Ask for start date (if not set)
-    if not requested_months:
-        st.markdown("## Step 1: When do you want to start tracking? 📅")
+    # STEP 0: Ask for start date (only shows if requested_months is empty)
+    if current_step == 0 or not requested_months:
+        st.markdown("## Step 1: When do you want to start tracking?")
         
         st.markdown("""
         <div style="background: white; padding: 30px; border-radius: 15px; border: 2px solid #FFB84D; margin: 20px 0;">
-            <h3 style="color: #2C3E50; margin-top: 0;">📅 Choose Your Start Date</h3>
+            <h3 style="color: #2C3E50; margin-top: 0;">Choose Your Start Date</h3>
             <p style="color: #34495E; font-size: 1.1rem;">
                 We'll analyze the <b>3 complete months BEFORE</b> your start date to understand your spending patterns.
             </p>
             <p style="color: #7F8C8D; margin-bottom: 0;">
-                💡 <b>Example:</b> If you choose February 16, 2026, we'll analyze:
-                <br>• November 2025
-                <br>• December 2025  
-                <br>• January 2026
+                <b>Example:</b> If you choose February 16, 2026, we'll analyze:
+                <br>&bull; November 2025
+                <br>&bull; December 2025  
+                <br>&bull; January 2026
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -858,7 +859,7 @@ if not st.session_state.onboarding_complete.get(current_user, False):
             help="We'll analyze the 3 complete months BEFORE this date"
         )
         
-        if st.button("✅ Continue", type="primary", use_container_width=True):
+        if st.button("Continue", type="primary", use_container_width=True):
             # Calculate the 3 prior complete months
             start_date = datetime.combine(user_start_date, datetime.min.time())
             
@@ -880,20 +881,21 @@ if not st.session_state.onboarding_complete.get(current_user, False):
             # Save to session state
             st.session_state.onboarding_data['requested_months'] = months_to_request
             st.session_state.onboarding_data['user_start_date'] = start_date.strftime("%Y-%m-%d")
-            st.session_state.onboarding_step = 4  # Start at first upload step
+            st.session_state.onboarding_step = 4  # Go to first upload step
+            st.success(f"Great! We'll analyze: {', '.join([m['short_name'] for m in months_to_request])}")
+            time.sleep(1)
             st.rerun()
         
-        st.stop()
+        st.stop()  # Don't show the rest of onboarding until date is selected
     
     # Progress bar (only show after date is selected)
-    current_step = st.session_state.onboarding_step
-    # Adjust progress to account for skipped steps  
-    adjusted_progress = ((current_step - 3) / 4) * 100 if current_step >= 4 else 0
+    # Adjust progress: steps 4,5,6 = upload months, step 7 = family, step 8 = analysis
+    adjusted_progress = ((current_step - 3) / 5) * 100 if current_step >= 4 else 0
     
     st.markdown(f"""
     <div style="margin: 20px 0;">
         <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-            <span><b>Step {current_step - 3} of 4</b></span>
+            <span><b>Step {current_step - 3} of 5</b></span>
             <span>{adjusted_progress:.0f}% Complete</span>
         </div>
         <div class="progress-bar">
@@ -904,7 +906,7 @@ if not st.session_state.onboarding_complete.get(current_user, False):
     
     st.divider()
     
-    # STEPS 4-6 are now STEPS 1-3 (Upload months)
+    # STEPS 4-6 are STEPS 1-3 (Upload months)
     if current_step in [4, 5, 6]:
         month_index = current_step - 4  # 0, 1, 2
         month_info = requested_months[month_index] if month_index < len(requested_months) else {'name': 'Unknown Month', 'short_name': 'Unknown'}
@@ -915,13 +917,9 @@ if not st.session_state.onboarding_complete.get(current_user, False):
         
         st.markdown(f"""
         <div style="background: #F8F9FA; padding: 20px; border-radius: 10px; border-left: 4px solid #FFB84D; margin: 20px 0;">
-            <h3 style="color: #2C3E50; margin-top: 0;">📅 Upload statements for {month_info['name']}</h3>
+            <h3 style="color: #2C3E50; margin-top: 0;">Upload statements for {month_info['name']}</h3>
             <p style="color: #34495E;">Add all accounts you used during this period</p>
-            <p style="color: #7F8C8D; margin-bottom: 0;"><i>💡 This is one of your last 3 complete months of financial data</i></p>
-        </div>
-        """, unsafe_allow_html=True)
-        <p>Add all accounts you used during this period</p>
-        <p><i>💡 This is one of your last 3 complete months of financial data</i></p>
+            <p style="color: #7F8C8D; margin-bottom: 0;"><i>This is one of your last 3 complete months of financial data</i></p>
         </div>
         """, unsafe_allow_html=True)
         
