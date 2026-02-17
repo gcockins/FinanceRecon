@@ -671,7 +671,7 @@ def check_budget_alerts(transactions, budget):
 
 # --- LOGIN PAGE ---
 def login_page():
-    # Simple, clean two-column layout
+    # FINEX-style: Light gray background, white card with split design
     st.markdown("""
     <style>
     /* Hide Streamlit branding */
@@ -679,78 +679,66 @@ def login_page():
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Main app background */
+    /* Light background like FINEX */
     .stApp {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #E8EDF2 !important;
     }
     
-    /* Card container */
-    .login-card {
-        background: white;
-        border-radius: 20px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        padding: 40px;
-        max-width: 450px;
-        margin: 50px auto;
+    /* Remove padding */
+    .block-container {
+        padding-top: 2rem !important;
+        max-width: 1200px !important;
     }
     
-    /* Logo */
-    .login-logo {
-        width: 100px;
-        margin: 0 auto 20px auto;
-        display: block;
-        border-radius: 12px;
+    /* Make inputs match FINEX style */
+    .stTextInput input {
+        background: #F8F9FA !important;
+        border: 1px solid #E0E0E0 !important;
+        border-radius: 8px !important;
+        padding: 12px 15px !important;
+        font-size: 1rem !important;
     }
     
-    /* Title */
-    .login-title {
-        text-align: center;
-        font-size: 2.5rem;
-        font-weight: 800;
-        margin: 10px 0;
-        background: linear-gradient(135deg, #FFB84D 0%, #F4A460 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+    /* Primary button dark blue like FINEX */
+    .stButton button[kind="primary"] {
+        background: #1E3A5F !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 12px !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
     }
     
-    /* Tagline */
-    .login-tagline {
-        text-align: center;
-        color: #7F8C8D;
-        margin-bottom: 30px;
-    }
-    
-    /* Features */
-    .login-feature {
-        display: flex;
-        align-items: center;
-        margin: 10px 0;
-        color: #34495E;
-        font-size: 0.9rem;
-    }
-    
-    .login-feature::before {
-        content: "✓";
-        background: #FFB84D;
-        color: #2C3E50;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        margin-right: 10px;
-        font-weight: bold;
-        font-size: 12px;
+    /* Secondary button */
+    .stButton button:not([kind="primary"]) {
+        background: white !important;
+        color: #1E3A5F !important;
+        border: 2px solid #1E3A5F !important;
+        border-radius: 8px !important;
+        padding: 12px !important;
+        font-weight: 600 !important;
     }
     </style>
     """, unsafe_allow_html=True)
     
-    # Center container
-    col1, col2, col3 = st.columns([1, 2, 1])
+    # Logo and tagline at top (centered)
+    st.markdown("""
+    <div style="text-align: center; margin-bottom: 50px; margin-top: 30px;">
+        <h1 style="font-size: 3.5rem; font-weight: 800; color: #1E3A5F; margin: 0; letter-spacing: 3px;">D.E.V.I.N</h1>
+        <p style="color: #7F8C8D; font-size: 1.2rem; margin-top: 10px;">Your Financial Blueprint</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    with col2:
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+    # Create white card container
+    st.markdown('<div style="background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); overflow: hidden;">', unsafe_allow_html=True)
+    
+    # Two columns: Left (image/brand), Right (form)
+    col_left, col_right = st.columns([1, 1])
+    
+    # LEFT COLUMN - Light blue background with logo (like FINEX)
+    with col_left:
+        st.markdown('<div style="background: linear-gradient(135deg, #A8C5DA 0%, #B8D4E8 100%); min-height: 550px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px;">', unsafe_allow_html=True)
         
         # Logo
         import base64
@@ -766,37 +754,40 @@ def login_page():
                 continue
         
         if logo_data:
-            st.markdown(f'<img src="data:image/png;base64,{logo_data}" class="login-logo">', unsafe_allow_html=True)
+            st.markdown(f'<img src="data:image/png;base64,{logo_data}" style="width: 85%; max-width: 400px; border-radius: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.15);">', unsafe_allow_html=True)
         else:
-            st.markdown('<div style="text-align: center; font-size: 3rem;">💼</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size: 10rem; color: white; text-shadow: 0 4px 10px rgba(0,0,0,0.2);">💼</div>', unsafe_allow_html=True)
         
-        # Title
-        st.markdown('<h1 class="login-title">D.E.V.I.N</h1>', unsafe_allow_html=True)
-        st.markdown('<p class="login-tagline">Your Financial Blueprint</p>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # RIGHT COLUMN - White background with form
+    with col_right:
+        st.markdown('<div style="padding: 60px 50px; min-height: 550px; display: flex; flex-direction: column; justify-content: center;">', unsafe_allow_html=True)
         
-        # Features
-        st.markdown('''
-        <div class="login-feature">Smart Budget Tracking</div>
-        <div class="login-feature">AI-Powered Insights</div>
-        <div class="login-feature">Goal Planning Tools</div>
-        <div class="login-feature">Secure & Private</div>
-        <br>
-        ''', unsafe_allow_html=True)
+        # Welcome Back heading
+        st.markdown("""
+        <h2 style="font-size: 2.2rem; color: #1E3A5F; margin: 0 0 30px 0; font-weight: 700;">Welcome Back</h2>
+        """, unsafe_allow_html=True)
         
-        # Form
-        with st.form("login_form"):
-            username = st.text_input("", placeholder="👤 Enter your name", label_visibility="collapsed")
-            password = st.text_input("", type="password", placeholder="🔐 Access code", label_visibility="collapsed")
+        # Login form
+        with st.form("login_form", clear_on_submit=False):
+            username = st.text_input("Username", placeholder="Username", label_visibility="collapsed", key="user_input")
+            st.markdown('<div style="margin: 15px 0;"></div>', unsafe_allow_html=True)
+            password = st.text_input("Password", type="password", placeholder="Access code", label_visibility="collapsed", key="pass_input")
             
-            col_a, col_b = st.columns(2)
-            with col_a:
-                login_button = st.form_submit_button("🔓 LOGIN", type="primary", use_container_width=True)
-            with col_b:
-                new_user_button = st.form_submit_button("➕ NEW USER", use_container_width=True)
+            st.markdown('<div style="margin: 25px 0;"></div>', unsafe_allow_html=True)
             
+            # Buttons
+            login_button = st.form_submit_button("LOGIN SECURELY", type="primary", use_container_width=True)
+            
+            st.markdown('<div style="margin: 12px 0;"></div>', unsafe_allow_html=True)
+            
+            new_user_button = st.form_submit_button("NEW USER", use_container_width=True)
+            
+            # Handle login
             if login_button or new_user_button:
                 if not username:
-                    st.error("👤 Please enter your name")
+                    st.error("Please enter your name")
                 elif password != MASTER_PASSWORD:
                     st.error("❌ Incorrect access code")
                 else:
@@ -811,8 +802,16 @@ def login_page():
                     time.sleep(0.5)
                     st.rerun()
         
-        st.markdown('<p style="text-align: center; color: #7F8C8D; font-size: 0.85rem; margin-top: 15px;">Don\'t have an account? Click <b style="color: #FFB84D;">NEW USER</b></p>', unsafe_allow_html=True)
+        # Footer text
+        st.markdown("""
+        <p style="text-align: center; color: #7F8C8D; font-size: 0.95rem; margin-top: 25px;">
+            Don't have an account? <span style="color: #1E3A5F; font-weight: 600;">Sign Up</span>
+        </p>
+        """, unsafe_allow_html=True)
+        
         st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 if not st.session_state.authenticated:
     login_page()
