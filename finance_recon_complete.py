@@ -152,8 +152,8 @@ supabase = init_supabase()
 USE_DATABASE = supabase is not None
 
 # --- CONSTANTS ---
-MINDEE_API_KEY = st.secrets.get("MINDEE_API_KEY", "")
-BANK_STATEMENT_MODEL_ID = "77d71fe3-2547-482e-94b3-a3a6c3d97028"
+AZURE_ENDPOINT = st.secrets.get("AZURE_ENDPOINT", "")
+AZURE_KEY = st.secrets.get("AZURE_KEY", "")
 MASTER_PASSWORD = "922626"
 
 # --- SESSION STATE INIT ---
@@ -314,32 +314,120 @@ def load_user_budget(user_id):
             pass
     return st.session_state.all_user_data.get(user_id, {}).get('budget', {})
 
-# --- MINDEE API ---
-def analyze_with_mindee(image_bytes, filename):
-    enqueue_url = "https://api-v2.mindee.net/v2/products/extraction/enqueue"
-    headers = {"Authorization": MINDEE_API_KEY}
-    files = {"file": (filename, image_bytes, "image/jpeg")}
-    data = {"model_id": BANK_STATEMENT_MODEL_ID}
+# --- AZURE DOCUMENT INTELLIGENCE API ---
+def analyze_with_azure(pdf_bytes, filename):
+    """
+    Analyze PDF using Azure Document Intelligence
+    Returns structured transaction data
+    """
+    if not AZURE_ENDPOINT or not AZURE_KEY:
+        raise Exception("Azure credentials not configured in secrets")
     
-    response = requests.post(enqueue_url, headers=headers, files=files, data=data)
-    if response.status_code not in [200, 201, 202]:
-        raise Exception(f"API Error {response.status_code}")
+    # Azure Document Intelligence endpoint
+    analyze_url = f"{AZURE_ENDPOINT}/formrecognizer/documentModels/prebuilt-invoice:analyze?api-version=2023-07-31"
     
-    job_id = response.json().get('job', {}).get('id')
-    if not job_id:
-        raise Exception("No job ID")
+    headers = {
+        "Content-Type": "application/pdf",
+        "Ocp-Apim-Subscription-Key": AZURE_KEY
+    }
     
-    job_url = f"https://api-v2.mindee.net/v2/jobs/{job_id}"
-    for _ in range(60):
-        time.sleep(1)
-        poll_response = requests.get(job_url, headers=headers, params={"redirect": "false"})
+    # Start analysis
+    response = requests.post(analyze_url, headers=headers, data=pdf_bytes)
+    
+    if response.status_code != 202:
+        raise Exception(f"Azure API Error {response.status_code}: {response.text}")
+    
+    # Get operation location for polling
+    operation_location = response.headers.get("Operation-Location")
+    if not operation_location:
+        raise Exception("No operation location in response")
+    
+    # Poll for results (Azure processes async)
+    poll_headers = {"Ocp-Apim-Subscription-Key": AZURE_KEY}
+    
+    for _ in range(60):  # Max 60 seconds
+        time.sleep(2)
+        poll_response = requests.get(operation_location, headers=poll_headers)
+        
         if poll_response.status_code == 200:
-            poll_data = poll_response.json()
-            if poll_data.get('job', {}).get('status') == 'Processed':
-                result_url = poll_data.get('job', {}).get('result_url')
-                if result_url:
-                    return requests.get(result_url, headers=headers).json()
-    raise Exception("Timeout")
+            result = poll_response.json()
+            status = result.get("status")
+            
+            if status == "succeeded":
+                return result
+            elif status == "failed":
+                raise Exception(f"Azure analysis failed: {result.get('error', {}).get('message', 'Unknown error')}")
+            # Status is "running" or "notStarted", continue polling
+        else:
+            raise Exception(f"Polling error {poll_response.status_code}")
+    
+    raise Exception("Azure analysis timeout after 60 seconds")
+
+def extract_transactions_from_azure(azure_result):
+    """
+    Extract transactions from Azure Document Intelligence result
+    Returns list of transaction dictionaries
+    """
+    transactions = []
+    
+    try:
+        # Azure returns data in analyzeResult.documents[0].fields
+        analyze_result = azure_result.get("analyzeResult", {})
+        documents = analyze_result.get("documents", [])
+        
+        if not documents:
+            # Try reading as generic document (line items)
+            pages = analyze_result.get("pages", [])
+            for page in pages:
+                lines = page.get("lines", [])
+                for line in lines:
+                    content = line.get("content", "")
+                    # Simple transaction detection
+                    if content and any(char.isdigit() for char in content):
+                        transactions.append({
+                            'description': content,
+                            'amount': 0.0,  # Will try to extract below
+                            'category': 'Other'
+                        })
+        else:
+            # Extract from structured invoice/receipt format
+            doc = documents[0]
+            fields = doc.get("fields", {})
+            
+            # Try to get line items
+            items = fields.get("Items", {}).get("valueArray", [])
+            
+            for item in items:
+                item_fields = item.get("valueObject", {})
+                
+                description = ""
+                amount = 0.0
+                
+                # Try different field names Azure might use
+                desc_field = item_fields.get("Description") or item_fields.get("ProductName") or item_fields.get("Item")
+                if desc_field:
+                    description = desc_field.get("content", "Unknown")
+                
+                amount_field = item_fields.get("Amount") or item_fields.get("Total") or item_fields.get("Price")
+                if amount_field:
+                    try:
+                        amount = float(amount_field.get("content", "0").replace("$", "").replace(",", ""))
+                    except:
+                        amount = 0.0
+                
+                if description:
+                    category = categorize_transaction(description)
+                    if category != 'PAYMENT_EXCLUDE':
+                        transactions.append({
+                            'description': description,
+                            'amount': abs(amount),
+                            'category': category
+                        })
+        
+    except Exception as e:
+        st.error(f"Error extracting transactions: {str(e)}")
+    
+    return transactions
 
 def categorize_transaction(description):
     desc_lower = description.lower()
@@ -558,56 +646,195 @@ def check_budget_alerts(transactions, budget):
 
 # --- LOGIN PAGE ---
 def login_page():
-    # Add custom CSS for login page
+    # Add custom CSS for professional split-screen login
     st.markdown("""
     <style>
-    .login-container {
-        max-width: 450px;
-        margin: 0 auto;
-        padding-top: 60px;
-    }
-    .login-card {
-        background: white;
-        border-radius: 20px;
-        padding: 40px;
-        box-shadow: 0 10px 40px rgba(44, 62, 80, 0.15);
-        border: 1px solid #E8EDF2;
-    }
-    .login-header {
-        text-align: center;
-        margin-bottom: 30px;
-    }
-    .login-logo {
-        width: 200px;
-        height: auto;
-        border-radius: 12px;
-        box-shadow: 0 4px 15px rgba(255, 184, 77, 0.25);
-        margin-bottom: 20px;
-    }
-    .login-title {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: #2C3E50;
-        margin: 0;
-        margin-bottom: 8px;
-    }
-    .login-subtitle {
-        font-size: 1rem;
-        color: #7F8C8D;
-        margin: 0;
-    }
-    /* Hide Streamlit branding on login page */
+    /* Hide Streamlit default elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    .stApp {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    /* Split screen container */
+    .login-container {
+        display: flex;
+        min-height: 100vh;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    
+    .login-card {
+        display: flex;
+        background: white;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        max-width: 1000px;
+        width: 100%;
+        min-height: 500px;
+    }
+    
+    /* Left side - Image/Brand */
+    .login-left {
+        flex: 1;
+        background: linear-gradient(135deg, #2C3E50 0%, #34495E 100%);
+        padding: 60px 40px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        color: white;
+    }
+    
+    .login-left img {
+        width: 80%;
+        max-width: 400px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(255, 184, 77, 0.3);
+    }
+    
+    .login-left h1 {
+        font-size: 3rem;
+        font-weight: 800;
+        margin: 0;
+        letter-spacing: 2px;
+        background: linear-gradient(135deg, #FFB84D 0%, #F4A460 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .login-left .tagline {
+        font-size: 1.2rem;
+        color: #C8DCE8;
+        margin-top: 15px;
+        font-weight: 300;
+        letter-spacing: 1px;
+    }
+    
+    .login-left .features {
+        margin-top: 40px;
+        text-align: left;
+        width: 100%;
+        max-width: 350px;
+    }
+    
+    .feature-item {
+        display: flex;
+        align-items: center;
+        margin: 15px 0;
+        font-size: 0.95rem;
+        color: #E8EDF2;
+    }
+    
+    .feature-item::before {
+        content: "✓";
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        background: #FFB84D;
+        border-radius: 50%;
+        margin-right: 12px;
+        text-align: center;
+        line-height: 24px;
+        font-weight: bold;
+        color: #2C3E50;
+        flex-shrink: 0;
+    }
+    
+    /* Right side - Form */
+    .login-right {
+        flex: 1;
+        padding: 60px 50px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    
+    .login-right h2 {
+        font-size: 2rem;
+        color: #2C3E50;
+        margin: 0 0 10px 0;
+        font-weight: 700;
+    }
+    
+    .login-right .subtitle {
+        color: #7F8C8D;
+        font-size: 1rem;
+        margin-bottom: 40px;
+    }
+    
+    /* Form styling */
+    .stTextInput > div > div > input {
+        border: 2px solid #E8EDF2;
+        border-radius: 10px;
+        padding: 15px 20px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .stTextInput > div > div > input:focus {
+        border-color: #FFB84D;
+        box-shadow: 0 0 0 3px rgba(255, 184, 77, 0.1);
+    }
+    
+    .stButton > button {
+        width: 100%;
+        background: linear-gradient(135deg, #FFB84D 0%, #F4A460 100%);
+        color: #2C3E50;
+        font-weight: 700;
+        font-size: 1.1rem;
+        padding: 15px;
+        border: none;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+        margin-top: 10px;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(255, 184, 77, 0.3);
+    }
+    
+    .login-footer {
+        text-align: center;
+        margin-top: 30px;
+        color: #7F8C8D;
+        font-size: 0.9rem;
+    }
+    
+    .login-footer a {
+        color: #FFB84D;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .login-card {
+            flex-direction: column;
+        }
+        .login-left {
+            padding: 40px 20px;
+        }
+        .login-right {
+            padding: 40px 20px;
+        }
+    }
     </style>
     """, unsafe_allow_html=True)
     
+    # Create split-screen layout
     st.markdown('<div class="login-container">', unsafe_allow_html=True)
     st.markdown('<div class="login-card">', unsafe_allow_html=True)
     
-    # Compact logo
-    st.markdown('<div class="login-header">', unsafe_allow_html=True)
+    # LEFT SIDE - Branding
+    st.markdown('<div class="login-left">', unsafe_allow_html=True)
     
     # Try to load logo
     import base64
@@ -623,43 +850,71 @@ def login_page():
             continue
     
     if logo_data:
-        st.markdown(f'<img src="data:image/png;base64,{logo_data}" class="login-logo">', unsafe_allow_html=True)
+        st.markdown(f'<img src="data:image/png;base64,{logo_data}" alt="D.E.V.I.N Logo">', unsafe_allow_html=True)
     else:
-        st.markdown('<div style="font-size: 3rem; margin-bottom: 15px;">💼</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size: 5rem; margin-bottom: 30px;">💼</div>', unsafe_allow_html=True)
     
-    st.markdown('<h1 class="login-title">D.E.V.I.N</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="login-subtitle">Daily Expense Verification Income Network</p>', unsafe_allow_html=True)
+    st.markdown('<h1>D.E.V.I.N</h1>', unsafe_allow_html=True)
+    st.markdown('<div class="tagline">Your Financial Blueprint</div>', unsafe_allow_html=True)
+    
+    st.markdown('''
+    <div class="features">
+        <div class="feature-item">Smart Budget Tracking</div>
+        <div class="feature-item">AI-Powered Insights</div>
+        <div class="feature-item">Goal Planning Tools</div>
+        <div class="feature-item">Secure & Private</div>
+    </div>
+    ''', unsafe_allow_html=True)
+    
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Login form
-    with st.form("login_form"):
-        username = st.text_input("👤 Your Name", placeholder="Enter your name", label_visibility="collapsed")
-        password = st.text_input("🔐 Access Code", type="password", placeholder="Enter access code (922626)", label_visibility="collapsed")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            login_button = st.form_submit_button("🔓 Login", use_container_width=True, type="primary")
-        with col2:
-            new_user_button = st.form_submit_button("➕ New User", use_container_width=True)
-        
-        if login_button or new_user_button:
-            if not username:
-                st.error("Please enter your name")
-            elif password != MASTER_PASSWORD:
-                st.error("❌ Incorrect access code")
-            else:
-                st.session_state.authenticated = True
-                st.session_state.current_user = username
-                st.session_state.user_id = get_or_create_user(username)
-                
-                # Check if onboarding is complete
-                if username not in st.session_state.onboarding_complete:
-                    st.session_state.onboarding_complete[username] = False
-                
-                st.success(f"✅ Welcome, {username}!")
-                time.sleep(0.5)
-                st.rerun()
+    # RIGHT SIDE - Login Form
+    st.markdown('<div class="login-right">', unsafe_allow_html=True)
     
+    # Use columns to control form width in Streamlit
+    col1, col2, col3 = st.columns([0.1, 1, 0.1])
+    
+    with col2:
+        st.markdown('<h2>Welcome Back</h2>', unsafe_allow_html=True)
+        st.markdown('<div class="subtitle">Sign in to continue to your financial dashboard</div>', unsafe_allow_html=True)
+        
+        with st.form("login_form"):
+            username = st.text_input("", placeholder="👤 Enter your name", label_visibility="collapsed", key="username_input")
+            password = st.text_input("", type="password", placeholder="🔐 Access code", label_visibility="collapsed", key="password_input")
+            
+            col_a, col_b = st.columns([1, 1])
+            
+            with col_a:
+                login_button = st.form_submit_button("🔓 LOGIN SECURELY", type="primary", use_container_width=True)
+            
+            with col_b:
+                new_user_button = st.form_submit_button("➕ NEW USER", use_container_width=True)
+            
+            if login_button or new_user_button:
+                if not username:
+                    st.error("👤 Please enter your name")
+                elif password != MASTER_PASSWORD:
+                    st.error("❌ Incorrect access code")
+                else:
+                    st.session_state.authenticated = True
+                    st.session_state.current_user = username
+                    st.session_state.user_id = get_or_create_user(username)
+                    
+                    # Check if onboarding is complete
+                    if username not in st.session_state.onboarding_complete:
+                        st.session_state.onboarding_complete[username] = False
+                    
+                    st.success(f"✅ Welcome, {username}!")
+                    time.sleep(0.5)
+                    st.rerun()
+        
+        st.markdown('''
+        <div class="login-footer">
+            Don't have an account? Click <a href="#">NEW USER</a> to get started
+        </div>
+        ''', unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -855,37 +1110,24 @@ if not st.session_state.onboarding_complete.get(current_user, False):
                                 filtered_pdf = pdf_bytes
                                 st.info("📄 Processing full document")
                             
-                            # STEP 3: Send to Mindee (now with fewer pages!)
-                            result = analyze_with_mindee(filtered_pdf, account['file'].name)
+                            # STEP 3: Send to Azure Document Intelligence
+                            result = analyze_with_azure(filtered_pdf, account['file'].name)
                             
-                            # Extract transactions - Mindee response has 'fields' at top level
-                            fields = result.get('fields', {})
-                            line_items = fields.get('line_items', {}).get('items', [])
+                            # Extract transactions from Azure result
+                            parsed_transactions = extract_transactions_from_azure(result)
                             
-                            st.info(f"🔍 Processing {account['name']}: Found {len(line_items)} line items")
+                            st.info(f"🔍 Processing {account['name']}: Found {len(parsed_transactions)} transactions")
                             
-                            for item in line_items:
-                                if isinstance(item, dict):
-                                    item_fields = item.get('fields', {})
-                                    desc = item_fields.get('description', {}).get('value', 'Unknown')
-                                    amount = item_fields.get('total_price', {}).get('value', 0.0)
-                                    
-                                    if not desc or amount is None or amount == 0:
-                                        continue
-                                    
-                                    category = categorize_transaction(desc)
-                                    if category == 'PAYMENT_EXCLUDE':
-                                        continue
-                                    
-                                    all_transactions.append({
-                                        'Date': datetime.now().strftime("%Y-%m-%d"),
-                                        'Vendor': desc,
-                                        'Amount': abs(float(amount)),
-                                        'Category': category,
-                                        'Type': 'Expense',
-                                        'Notes': f"From {account['name']}",
-                                        'Card': account['name']
-                                    })
+                            for trans in parsed_transactions:
+                                all_transactions.append({
+                                    'Date': datetime.now().strftime("%Y-%m-%d"),
+                                    'Vendor': trans['description'],
+                                    'Amount': trans['amount'],
+                                    'Category': trans['category'],
+                                    'Type': 'Expense',
+                                    'Notes': f"From {account['name']}",
+                                    'Card': account['name']
+                                })
                         except Exception as e:
                             st.error(f"❌ Error processing {account['name']}: {str(e)}")
         
@@ -1320,32 +1562,11 @@ else:
                             filtered_pdf = pdf_bytes
                             st.info("📄 Processing full document")
                         
-                        # STEP 3: Send to Mindee (now with fewer pages!)
-                        result = analyze_with_mindee(filtered_pdf, uploaded_file.name)
+                        # STEP 3: Send to Azure Document Intelligence
+                        result = analyze_with_azure(filtered_pdf, uploaded_file.name)
                         
-                        # Extract from top-level fields
-                        fields = result.get('fields', {})
-                        line_items = fields.get('line_items', {}).get('items', [])
-                        
-                        parsed = []
-                        for item in line_items:
-                            if isinstance(item, dict):
-                                item_fields = item.get('fields', {})
-                                desc = item_fields.get('description', {}).get('value', 'Unknown')
-                                amount = item_fields.get('total_price', {}).get('value', 0.0)
-                                
-                                if not desc or amount is None or amount == 0:
-                                    continue
-                                
-                                category = categorize_transaction(desc)
-                                if category == 'PAYMENT_EXCLUDE':
-                                    continue
-                                
-                                parsed.append({
-                                    'description': desc,
-                                    'amount': abs(float(amount)),
-                                    'category': category
-                                })
+                        # Extract transactions from Azure result
+                        parsed = extract_transactions_from_azure(result)
                         
                         st.success(f"✅ Found {len(parsed)} transactions!")
                         
