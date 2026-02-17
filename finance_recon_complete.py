@@ -168,37 +168,14 @@ if 'onboarding_complete' not in st.session_state:
 if 'onboarding_step' not in st.session_state:
     st.session_state.onboarding_step = 4  # Start at Step 4
 if 'onboarding_data' not in st.session_state:
-    # Calculate which months to request
-    today = datetime.now()
-    
-    # If we're in the first 2 weeks of the month, assume current month data isn't available yet
-    if today.day <= 14:
-        # Ask for previous 3 complete months
-        months_to_request = []
-        for i in range(1, 4):  # 1, 2, 3 months ago
-            month_date = today - timedelta(days=today.day + 30*i)
-            months_to_request.append({
-                'date': month_date,
-                'name': month_date.strftime("%B %Y"),
-                'short_name': month_date.strftime("%b %Y")
-            })
-    else:
-        # Current month is mostly complete, include it
-        months_to_request = []
-        for i in range(0, 3):  # 0, 1, 2 months ago
-            month_date = today - timedelta(days=30*i)
-            months_to_request.append({
-                'date': month_date,
-                'name': month_date.strftime("%B %Y"),
-                'short_name': month_date.strftime("%b %Y")
-            })
-    
+    # Don't calculate months yet - will ask user for start date first
     st.session_state.onboarding_data = {
         'months_uploaded': {},
         'family_size': {'adults': 1, 'children': 0},
         'all_transactions': [],
-        'requested_months': months_to_request,
-        'signup_date': today.strftime("%Y-%m-%d")
+        'requested_months': [],  # Will be filled after user provides start date
+        'user_start_date': None,
+        'signup_date': datetime.now().strftime("%Y-%m-%d")
     }
 if 'all_user_data' not in st.session_state:
     st.session_state.all_user_data = {}
@@ -653,12 +630,14 @@ def login_page():
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    .stApp {
+    
+    /* Main container */
+    .stApp > div:first-child {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     }
     
-    /* Split screen container */
-    .login-container {
+    /* Login layout - horizontal split */
+    .login-wrapper {
         display: flex;
         min-height: 100vh;
         align-items: center;
@@ -666,217 +645,171 @@ def login_page():
         padding: 20px;
     }
     
-    .login-card {
+    .login-container {
         display: flex;
+        flex-direction: row;
         background: white;
         border-radius: 20px;
         overflow: hidden;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        max-width: 1000px;
+        max-width: 900px;
         width: 100%;
-        min-height: 500px;
+        min-height: 550px;
     }
     
-    /* Left side - Image/Brand */
-    .login-left {
-        flex: 1;
+    /* Left side - Brand (40% width) */
+    .brand-side {
+        flex: 0 0 40%;
         background: linear-gradient(135deg, #2C3E50 0%, #34495E 100%);
-        padding: 60px 40px;
+        padding: 50px 30px;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        text-align: center;
         color: white;
+        text-align: center;
     }
     
-    .login-left img {
-        width: 80%;
-        max-width: 400px;
-        border-radius: 15px;
-        margin-bottom: 30px;
-        box-shadow: 0 10px 30px rgba(255, 184, 77, 0.3);
+    .brand-logo {
+        width: 120px;
+        height: auto;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        opacity: 0.95;
     }
     
-    .login-left h1 {
-        font-size: 3rem;
+    .brand-title {
+        font-size: 2.5rem;
         font-weight: 800;
-        margin: 0;
-        letter-spacing: 2px;
+        margin: 0 0 10px 0;
+        letter-spacing: 3px;
         background: linear-gradient(135deg, #FFB84D 0%, #F4A460 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        background-clip: text;
     }
     
-    .login-left .tagline {
-        font-size: 1.2rem;
+    .brand-tagline {
+        font-size: 1rem;
         color: #C8DCE8;
-        margin-top: 15px;
+        margin-bottom: 35px;
         font-weight: 300;
-        letter-spacing: 1px;
     }
     
-    .login-left .features {
-        margin-top: 40px;
-        text-align: left;
+    .brand-features {
         width: 100%;
-        max-width: 350px;
+        text-align: left;
     }
     
     .feature-item {
         display: flex;
         align-items: center;
-        margin: 15px 0;
-        font-size: 0.95rem;
+        margin: 12px 0;
+        font-size: 0.9rem;
         color: #E8EDF2;
     }
     
-    .feature-item::before {
-        content: "✓";
-        display: inline-block;
-        width: 24px;
-        height: 24px;
+    .feature-check {
+        width: 20px;
+        height: 20px;
         background: #FFB84D;
         border-radius: 50%;
-        margin-right: 12px;
-        text-align: center;
-        line-height: 24px;
+        margin-right: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
         font-weight: bold;
         color: #2C3E50;
         flex-shrink: 0;
     }
     
-    /* Right side - Form */
-    .login-right {
-        flex: 1;
-        padding: 60px 50px;
+    /* Right side - Form (60% width) */
+    .form-side {
+        flex: 0 0 60%;
+        padding: 50px 40px;
         display: flex;
         flex-direction: column;
         justify-content: center;
     }
     
-    .login-right h2 {
-        font-size: 2rem;
-        color: #2C3E50;
-        margin: 0 0 10px 0;
-        font-weight: 700;
-    }
-    
-    .login-right .subtitle {
-        color: #7F8C8D;
-        font-size: 1rem;
-        margin-bottom: 40px;
-    }
-    
-    /* Form styling */
-    .stTextInput > div > div > input {
-        border: 2px solid #E8EDF2;
-        border-radius: 10px;
-        padding: 15px 20px;
-        font-size: 1rem;
-        transition: all 0.3s ease;
-    }
-    
-    .stTextInput > div > div > input:focus {
-        border-color: #FFB84D;
-        box-shadow: 0 0 0 3px rgba(255, 184, 77, 0.1);
-    }
-    
-    .stButton > button {
-        width: 100%;
-        background: linear-gradient(135deg, #FFB84D 0%, #F4A460 100%);
-        color: #2C3E50;
-        font-weight: 700;
-        font-size: 1.1rem;
-        padding: 15px;
-        border: none;
-        border-radius: 10px;
-        transition: all 0.3s ease;
-        margin-top: 10px;
-    }
-    
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 25px rgba(255, 184, 77, 0.3);
-    }
-    
-    .login-footer {
-        text-align: center;
-        margin-top: 30px;
-        color: #7F8C8D;
-        font-size: 0.9rem;
-    }
-    
-    .login-footer a {
-        color: #FFB84D;
-        text-decoration: none;
-        font-weight: 600;
-    }
-    
     /* Responsive */
     @media (max-width: 768px) {
-        .login-card {
+        .login-container {
             flex-direction: column;
         }
-        .login-left {
-            padding: 40px 20px;
+        .brand-side {
+            flex: 0 0 auto;
+            padding: 30px 20px;
         }
-        .login-right {
-            padding: 40px 20px;
+        .form-side {
+            flex: 0 0 auto;
+            padding: 30px 20px;
         }
     }
     </style>
     """, unsafe_allow_html=True)
     
-    # Create split-screen layout
-    st.markdown('<div class="login-container">', unsafe_allow_html=True)
-    st.markdown('<div class="login-card">', unsafe_allow_html=True)
+    # Main container
+    col_left, col_right = st.columns([0.4, 0.6])
     
-    # LEFT SIDE - Branding
-    st.markdown('<div class="login-left">', unsafe_allow_html=True)
+    # LEFT SIDE - Brand
+    with col_left:
+        st.markdown('<div style="background: linear-gradient(135deg, #2C3E50 0%, #34495E 100%); padding: 50px 30px; border-radius: 20px 0 0 20px; min-height: 550px; display: flex; flex-direction: column; justify-content: center;">', unsafe_allow_html=True)
+        
+        # Small logo
+        import base64
+        logo_paths = ["Devin.png", "devin_logo.png", "/mnt/user-data/uploads/Devin.png"]
+        logo_data = None
+        
+        for path in logo_paths:
+            try:
+                with open(path, "rb") as f:
+                    logo_data = base64.b64encode(f.read()).decode()
+                    break
+            except:
+                continue
+        
+        if logo_data:
+            st.markdown(f'<div style="text-align: center;"><img src="data:image/png;base64,{logo_data}" style="width: 120px; border-radius: 12px; margin-bottom: 20px; opacity: 0.95;"></div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div style="text-align: center; font-size: 3rem; margin-bottom: 20px;">💼</div>', unsafe_allow_html=True)
+        
+        st.markdown('''
+        <div style="text-align: center; color: white;">
+            <h1 style="font-size: 2.5rem; font-weight: 800; margin: 0 0 10px 0; letter-spacing: 3px; background: linear-gradient(135deg, #FFB84D 0%, #F4A460 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">D.E.V.I.N</h1>
+            <p style="color: #C8DCE8; margin-bottom: 35px;">Your Financial Blueprint</p>
+        </div>
+        
+        <div style="color: #E8EDF2; font-size: 0.9rem;">
+            <div style="display: flex; align-items: center; margin: 12px 0;">
+                <span style="width: 20px; height: 20px; background: #FFB84D; border-radius: 50%; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: #2C3E50;">✓</span>
+                Smart Budget Tracking
+            </div>
+            <div style="display: flex; align-items: center; margin: 12px 0;">
+                <span style="width: 20px; height: 20px; background: #FFB84D; border-radius: 50%; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: #2C3E50;">✓</span>
+                AI-Powered Insights
+            </div>
+            <div style="display: flex; align-items: center; margin: 12px 0;">
+                <span style="width: 20px; height: 20px; background: #FFB84D; border-radius: 50%; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: #2C3E50;">✓</span>
+                Goal Planning Tools
+            </div>
+            <div style="display: flex; align-items: center; margin: 12px 0;">
+                <span style="width: 20px; height: 20px; background: #FFB84D; border-radius: 50%; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: #2C3E50;">✓</span>
+                Secure & Private
+            </div>
+        </div>
+        ''', unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
     
-    # Try to load logo
-    import base64
-    logo_paths = ["Devin.png", "devin_logo.png", "/mnt/user-data/uploads/Devin.png"]
-    logo_data = None
-    
-    for path in logo_paths:
-        try:
-            with open(path, "rb") as f:
-                logo_data = base64.b64encode(f.read()).decode()
-                break
-        except:
-            continue
-    
-    if logo_data:
-        st.markdown(f'<img src="data:image/png;base64,{logo_data}" alt="D.E.V.I.N Logo">', unsafe_allow_html=True)
-    else:
-        st.markdown('<div style="font-size: 5rem; margin-bottom: 30px;">💼</div>', unsafe_allow_html=True)
-    
-    st.markdown('<h1>D.E.V.I.N</h1>', unsafe_allow_html=True)
-    st.markdown('<div class="tagline">Your Financial Blueprint</div>', unsafe_allow_html=True)
-    
-    st.markdown('''
-    <div class="features">
-        <div class="feature-item">Smart Budget Tracking</div>
-        <div class="feature-item">AI-Powered Insights</div>
-        <div class="feature-item">Goal Planning Tools</div>
-        <div class="feature-item">Secure & Private</div>
-    </div>
-    ''', unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # RIGHT SIDE - Login Form
-    st.markdown('<div class="login-right">', unsafe_allow_html=True)
-    
-    # Use columns to control form width in Streamlit
-    col1, col2, col3 = st.columns([0.1, 1, 0.1])
-    
-    with col2:
-        st.markdown('<h2>Welcome Back</h2>', unsafe_allow_html=True)
-        st.markdown('<div class="subtitle">Sign in to continue to your financial dashboard</div>', unsafe_allow_html=True)
+    # RIGHT SIDE - Form
+    with col_right:
+        st.markdown('<div style="padding: 50px 30px;">', unsafe_allow_html=True)
+        
+        st.markdown('''
+        <h2 style="font-size: 2rem; color: #2C3E50; margin: 0 0 10px 0; font-weight: 700;">Welcome Back</h2>
+        <p style="color: #7F8C8D; margin-bottom: 30px;">Sign in to continue to your dashboard</p>
+        ''', unsafe_allow_html=True)
         
         with st.form("login_form"):
             username = st.text_input("", placeholder="👤 Enter your name", label_visibility="collapsed", key="username_input")
@@ -885,7 +818,7 @@ def login_page():
             col_a, col_b = st.columns([1, 1])
             
             with col_a:
-                login_button = st.form_submit_button("🔓 LOGIN SECURELY", type="primary", use_container_width=True)
+                login_button = st.form_submit_button("🔓 LOGIN", type="primary", use_container_width=True)
             
             with col_b:
                 new_user_button = st.form_submit_button("➕ NEW USER", use_container_width=True)
@@ -900,7 +833,6 @@ def login_page():
                     st.session_state.current_user = username
                     st.session_state.user_id = get_or_create_user(username)
                     
-                    # Check if onboarding is complete
                     if username not in st.session_state.onboarding_complete:
                         st.session_state.onboarding_complete[username] = False
                     
@@ -908,15 +840,9 @@ def login_page():
                     time.sleep(0.5)
                     st.rerun()
         
-        st.markdown('''
-        <div class="login-footer">
-            Don't have an account? Click <a href="#">NEW USER</a> to get started
-        </div>
-        ''', unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<p style="text-align: center; color: #7F8C8D; font-size: 0.9rem; margin-top: 20px;">Don\'t have an account? Click <b style="color: #FFB84D;">NEW USER</b></p>', unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
 if not st.session_state.authenticated:
     login_page()
@@ -932,16 +858,72 @@ if not st.session_state.onboarding_complete.get(current_user, False):
     st.markdown("# 🎯 Welcome to D.E.V.I.N!")
     st.markdown("*Let's set up your financial profile in just a few minutes*")
     
-    # Progress bar
-    total_steps = 6
+    # Get requested months
+    requested_months = st.session_state.onboarding_data.get('requested_months', [])
+    
+    # STEP 0: Ask for start date (if not set)
+    if not requested_months:
+        st.markdown("## Step 1: When do you want to start tracking? 📅")
+        
+        st.markdown("""
+        <div style="background: white; padding: 30px; border-radius: 15px; border: 2px solid #FFB84D; margin: 20px 0;">
+            <h3 style="color: #2C3E50; margin-top: 0;">📅 Choose Your Start Date</h3>
+            <p style="color: #34495E; font-size: 1.1rem;">
+                We'll analyze the <b>3 complete months BEFORE</b> your start date to understand your spending patterns.
+            </p>
+            <p style="color: #7F8C8D; margin-bottom: 0;">
+                💡 <b>Example:</b> If you choose February 16, 2026, we'll analyze:
+                <br>• November 2025
+                <br>• December 2025  
+                <br>• January 2026
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        user_start_date = st.date_input(
+            "Select your start date:",
+            value=datetime.now(),
+            min_value=datetime(2020, 1, 1),
+            max_value=datetime.now() + timedelta(days=30),
+            help="We'll analyze the 3 complete months BEFORE this date"
+        )
+        
+        if st.button("✅ Continue", type="primary", use_container_width=True):
+            # Calculate the 3 prior complete months
+            start_date = datetime.combine(user_start_date, datetime.min.time())
+            
+            # Get the first day of the month before start date
+            first_of_prior_month = (start_date.replace(day=1) - timedelta(days=1)).replace(day=1)
+            
+            # Calculate 3 prior complete months
+            months_to_request = []
+            for i in range(3):
+                month_date = first_of_prior_month - timedelta(days=30*i)
+                # Get first day of that month
+                month_first = month_date.replace(day=1)
+                months_to_request.insert(0, {
+                    'date': month_first,
+                    'name': month_first.strftime("%B %Y"),
+                    'short_name': month_first.strftime("%b %Y")
+                })
+            
+            # Save to session state
+            st.session_state.onboarding_data['requested_months'] = months_to_request
+            st.session_state.onboarding_data['user_start_date'] = start_date.strftime("%Y-%m-%d")
+            st.session_state.onboarding_step = 4  # Start at first upload step
+            st.rerun()
+        
+        st.stop()
+    
+    # Progress bar (only show after date is selected)
     current_step = st.session_state.onboarding_step
-    # Adjust progress to account for skipped steps
-    adjusted_progress = ((current_step - 3) / 3) * 100 if current_step >= 4 else 0
+    # Adjust progress to account for skipped steps  
+    adjusted_progress = ((current_step - 3) / 4) * 100 if current_step >= 4 else 0
     
     st.markdown(f"""
     <div style="margin: 20px 0;">
         <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-            <span><b>Step {current_step - 3} of 3</b></span>
+            <span><b>Step {current_step - 3} of 4</b></span>
             <span>{adjusted_progress:.0f}% Complete</span>
         </div>
         <div class="progress-bar">
@@ -951,9 +933,6 @@ if not st.session_state.onboarding_complete.get(current_user, False):
     """, unsafe_allow_html=True)
     
     st.divider()
-    
-    # Get requested months from onboarding data
-    requested_months = st.session_state.onboarding_data.get('requested_months', [])
     
     # STEPS 4-6 are now STEPS 1-3 (Upload months)
     if current_step in [4, 5, 6]:
@@ -965,8 +944,12 @@ if not st.session_state.onboarding_complete.get(current_user, False):
         st.markdown(f"## Step {step_label}: Upload {month_info['name']} 📤")
         
         st.markdown(f"""
-        <div class="wizard-step">
-        <h3>📅 Upload statements for {month_info['name']}</h3>
+        <div style="background: #F8F9FA; padding: 20px; border-radius: 10px; border-left: 4px solid #FFB84D; margin: 20px 0;">
+            <h3 style="color: #2C3E50; margin-top: 0;">📅 Upload statements for {month_info['name']}</h3>
+            <p style="color: #34495E;">Add all accounts you used during this period</p>
+            <p style="color: #7F8C8D; margin-bottom: 0;"><i>💡 This is one of your last 3 complete months of financial data</i></p>
+        </div>
+        """, unsafe_allow_html=True)
         <p>Add all accounts you used during this period</p>
         <p><i>💡 This is one of your last 3 complete months of financial data</i></p>
         </div>
