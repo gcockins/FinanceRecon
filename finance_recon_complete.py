@@ -58,6 +58,54 @@ st.markdown("""
         border-left: 5px solid #FFB84D;
     }
     
+    /* Fix Streamlit's dark expander backgrounds */
+    .streamlit-expanderHeader {
+        background-color: #F8F9FA !important;
+        color: #2C3E50 !important;
+        border: 2px solid #E8EDF2 !important;
+        border-radius: 10px !important;
+    }
+    
+    .streamlit-expanderContent {
+        background-color: white !important;
+        border: 2px solid #E8EDF2 !important;
+        border-top: none !important;
+        border-radius: 0 0 10px 10px !important;
+    }
+    
+    /* Fix file uploader dark background */
+    [data-testid="stFileUploader"] {
+        background-color: white !important;
+        border: 2px dashed #FFB84D !important;
+        border-radius: 10px !important;
+        padding: 20px !important;
+    }
+    
+    [data-testid="stFileUploader"] label {
+        color: #2C3E50 !important;
+    }
+    
+    [data-testid="stFileUploader"] section {
+        background-color: #F8F9FA !important;
+        border-color: #FFB84D !important;
+    }
+    
+    /* Fix text input dark backgrounds */
+    .stTextInput > div > div > input {
+        background-color: white !important;
+        color: #2C3E50 !important;
+        border: 2px solid #E8EDF2 !important;
+        border-radius: 8px !important;
+    }
+    
+    /* Fix selectbox dark backgrounds */
+    .stSelectbox > div > div {
+        background-color: white !important;
+        color: #2C3E50 !important;
+        border: 2px solid #E8EDF2 !important;
+        border-radius: 8px !important;
+    }
+    
     .alert-warning {
         background: #FFF3CD;
         border-left: 4px solid #FFA500;
@@ -623,140 +671,88 @@ def check_budget_alerts(transactions, budget):
 
 # --- LOGIN PAGE ---
 def login_page():
-    # Add custom CSS for professional split-screen login
+    # Simple, clean two-column layout
     st.markdown("""
     <style>
-    /* Hide Streamlit default elements */
+    /* Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Main container */
-    .stApp > div:first-child {
+    /* Main app background */
+    .stApp {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     }
     
-    /* Login layout - horizontal split */
-    .login-wrapper {
-        display: flex;
-        min-height: 100vh;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-    }
-    
-    .login-container {
-        display: flex;
-        flex-direction: row;
+    /* Card container */
+    .login-card {
         background: white;
         border-radius: 20px;
-        overflow: hidden;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        max-width: 900px;
-        width: 100%;
-        min-height: 550px;
+        padding: 40px;
+        max-width: 450px;
+        margin: 50px auto;
     }
     
-    /* Left side - Brand (40% width) */
-    .brand-side {
-        flex: 0 0 40%;
-        background: linear-gradient(135deg, #2C3E50 0%, #34495E 100%);
-        padding: 50px 30px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        color: white;
-        text-align: center;
-    }
-    
-    .brand-logo {
-        width: 120px;
-        height: auto;
+    /* Logo */
+    .login-logo {
+        width: 100px;
+        margin: 0 auto 20px auto;
+        display: block;
         border-radius: 12px;
-        margin-bottom: 25px;
-        opacity: 0.95;
     }
     
-    .brand-title {
+    /* Title */
+    .login-title {
+        text-align: center;
         font-size: 2.5rem;
         font-weight: 800;
-        margin: 0 0 10px 0;
-        letter-spacing: 3px;
+        margin: 10px 0;
         background: linear-gradient(135deg, #FFB84D 0%, #F4A460 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
     }
     
-    .brand-tagline {
-        font-size: 1rem;
-        color: #C8DCE8;
-        margin-bottom: 35px;
-        font-weight: 300;
+    /* Tagline */
+    .login-tagline {
+        text-align: center;
+        color: #7F8C8D;
+        margin-bottom: 30px;
     }
     
-    .brand-features {
-        width: 100%;
-        text-align: left;
-    }
-    
-    .feature-item {
+    /* Features */
+    .login-feature {
         display: flex;
         align-items: center;
-        margin: 12px 0;
+        margin: 10px 0;
+        color: #34495E;
         font-size: 0.9rem;
-        color: #E8EDF2;
     }
     
-    .feature-check {
-        width: 20px;
-        height: 20px;
+    .login-feature::before {
+        content: "✓";
         background: #FFB84D;
+        color: #2C3E50;
+        width: 18px;
+        height: 18px;
         border-radius: 50%;
-        margin-right: 10px;
-        display: flex;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 12px;
+        margin-right: 10px;
         font-weight: bold;
-        color: #2C3E50;
-        flex-shrink: 0;
-    }
-    
-    /* Right side - Form (60% width) */
-    .form-side {
-        flex: 0 0 60%;
-        padding: 50px 40px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-    }
-    
-    /* Responsive */
-    @media (max-width: 768px) {
-        .login-container {
-            flex-direction: column;
-        }
-        .brand-side {
-            flex: 0 0 auto;
-            padding: 30px 20px;
-        }
-        .form-side {
-            flex: 0 0 auto;
-            padding: 30px 20px;
-        }
+        font-size: 12px;
     }
     </style>
     """, unsafe_allow_html=True)
     
-    # Main container
-    col_left, col_right = st.columns([0.4, 0.6])
+    # Center container
+    col1, col2, col3 = st.columns([1, 2, 1])
     
-    # LEFT SIDE - Brand
-    with col_left:
-        st.markdown('<div style="background: linear-gradient(135deg, #2C3E50 0%, #34495E 100%); padding: 50px 30px; border-radius: 20px 0 0 20px; min-height: 550px; display: flex; flex-direction: column; justify-content: center;">', unsafe_allow_html=True)
+    with col2:
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
         
-        # Small logo
+        # Logo
         import base64
         logo_paths = ["Devin.png", "devin_logo.png", "/mnt/user-data/uploads/Devin.png"]
         logo_data = None
@@ -770,56 +766,31 @@ def login_page():
                 continue
         
         if logo_data:
-            st.markdown(f'<div style="text-align: center;"><img src="data:image/png;base64,{logo_data}" style="width: 120px; border-radius: 12px; margin-bottom: 20px; opacity: 0.95;"></div>', unsafe_allow_html=True)
+            st.markdown(f'<img src="data:image/png;base64,{logo_data}" class="login-logo">', unsafe_allow_html=True)
         else:
-            st.markdown('<div style="text-align: center; font-size: 3rem; margin-bottom: 20px;">💼</div>', unsafe_allow_html=True)
+            st.markdown('<div style="text-align: center; font-size: 3rem;">💼</div>', unsafe_allow_html=True)
         
+        # Title
+        st.markdown('<h1 class="login-title">D.E.V.I.N</h1>', unsafe_allow_html=True)
+        st.markdown('<p class="login-tagline">Your Financial Blueprint</p>', unsafe_allow_html=True)
+        
+        # Features
         st.markdown('''
-        <div style="text-align: center; color: white;">
-            <h1 style="font-size: 2.5rem; font-weight: 800; margin: 0 0 10px 0; letter-spacing: 3px; background: linear-gradient(135deg, #FFB84D 0%, #F4A460 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">D.E.V.I.N</h1>
-            <p style="color: #C8DCE8; margin-bottom: 35px;">Your Financial Blueprint</p>
-        </div>
-        
-        <div style="color: #E8EDF2; font-size: 0.9rem;">
-            <div style="display: flex; align-items: center; margin: 12px 0;">
-                <span style="width: 20px; height: 20px; background: #FFB84D; border-radius: 50%; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: #2C3E50;">✓</span>
-                Smart Budget Tracking
-            </div>
-            <div style="display: flex; align-items: center; margin: 12px 0;">
-                <span style="width: 20px; height: 20px; background: #FFB84D; border-radius: 50%; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: #2C3E50;">✓</span>
-                AI-Powered Insights
-            </div>
-            <div style="display: flex; align-items: center; margin: 12px 0;">
-                <span style="width: 20px; height: 20px; background: #FFB84D; border-radius: 50%; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: #2C3E50;">✓</span>
-                Goal Planning Tools
-            </div>
-            <div style="display: flex; align-items: center; margin: 12px 0;">
-                <span style="width: 20px; height: 20px; background: #FFB84D; border-radius: 50%; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: #2C3E50;">✓</span>
-                Secure & Private
-            </div>
-        </div>
+        <div class="login-feature">Smart Budget Tracking</div>
+        <div class="login-feature">AI-Powered Insights</div>
+        <div class="login-feature">Goal Planning Tools</div>
+        <div class="login-feature">Secure & Private</div>
+        <br>
         ''', unsafe_allow_html=True)
         
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    # RIGHT SIDE - Form
-    with col_right:
-        st.markdown('<div style="padding: 50px 30px;">', unsafe_allow_html=True)
-        
-        st.markdown('''
-        <h2 style="font-size: 2rem; color: #2C3E50; margin: 0 0 10px 0; font-weight: 700;">Welcome Back</h2>
-        <p style="color: #7F8C8D; margin-bottom: 30px;">Sign in to continue to your dashboard</p>
-        ''', unsafe_allow_html=True)
-        
+        # Form
         with st.form("login_form"):
-            username = st.text_input("", placeholder="👤 Enter your name", label_visibility="collapsed", key="username_input")
-            password = st.text_input("", type="password", placeholder="🔐 Access code", label_visibility="collapsed", key="password_input")
+            username = st.text_input("", placeholder="👤 Enter your name", label_visibility="collapsed")
+            password = st.text_input("", type="password", placeholder="🔐 Access code", label_visibility="collapsed")
             
-            col_a, col_b = st.columns([1, 1])
-            
+            col_a, col_b = st.columns(2)
             with col_a:
                 login_button = st.form_submit_button("🔓 LOGIN", type="primary", use_container_width=True)
-            
             with col_b:
                 new_user_button = st.form_submit_button("➕ NEW USER", use_container_width=True)
             
@@ -840,8 +811,7 @@ def login_page():
                     time.sleep(0.5)
                     st.rerun()
         
-        st.markdown('<p style="text-align: center; color: #7F8C8D; font-size: 0.9rem; margin-top: 20px;">Don\'t have an account? Click <b style="color: #FFB84D;">NEW USER</b></p>', unsafe_allow_html=True)
-        
+        st.markdown('<p style="text-align: center; color: #7F8C8D; font-size: 0.85rem; margin-top: 15px;">Don\'t have an account? Click <b style="color: #FFB84D;">NEW USER</b></p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
 if not st.session_state.authenticated:
